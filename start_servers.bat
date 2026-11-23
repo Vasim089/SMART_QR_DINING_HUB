@@ -14,15 +14,20 @@ start "Smart QR Frontend" cmd /k "npm --prefix frontend run dev"
 
 echo.
 echo ========================================================
-echo Both servers are launching!
+echo Servers are launching!
 echo.
-echo Local AI Model: Ollama + Qwen 2.5 3B (http://localhost:11434)
-echo Tip: To activate local LLM, in another terminal run:
-echo      ollama run qwen2.5:3b
+echo 👑 OWNER / ADMIN DASHBOARD (Where all QR codes are managed):
+echo    URL:         http://localhost:5173/?mode=owner
+echo    Credentials: admin@dininghub.com / admin123
+echo    Features:    Generate & Print Table QR Codes, Daily Menu Availability, Analytics
 echo.
-echo Customer Dining Hub (Table 1): http://localhost:5173/?restaurant=1&table=1
-echo Customer Dining Hub (Table 5): http://localhost:5173/?restaurant=1&table=5
-echo Owner Dashboard:              http://localhost:5173/?mode=owner
-echo Backend Swagger API Docs:     http://localhost:8000/docs
+echo 🍽️ CUSTOMER DINING VIEW (Mobile-friendly only, no QR codes):
+echo    Table 1:     http://localhost:5173/?restaurant=1&table=1
+echo    Table 5:     http://localhost:5173/?restaurant=1&table=5
+echo.
+echo 🤖 Local AI Model: Ollama + Qwen 2.5 3B (http://localhost:11434)
+echo    Run command: ollama run qwen2.5:3b
+echo.
+echo 📖 Swagger API Docs: http://localhost:8000/docs
 echo ========================================================
 pause

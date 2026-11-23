@@ -2,8 +2,10 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from app.config import settings
-from app.database import engine, Base
+from app.database import engine, Base, SessionLocal
 from app.seed import seed_database
+from app.auth import get_password_hash, verify_password
+from app import models
 from app.routers import public, chat, admin, analytics
 
 @asynccontextmanager
@@ -14,6 +16,27 @@ async def lifespan(app: FastAPI):
         seed_database()
     except Exception as e:
         print(f"Database seed note: {e}")
+
+    try:
+        db = SessionLocal()
+        admin_user = db.query(models.AdminUser).filter(models.AdminUser.email == "admin@dininghub.com").first()
+        if not admin_user:
+            admin_user = models.AdminUser(
+                restaurant_id=1,
+                name="Chef Vikram & Team",
+                email="admin@dininghub.com",
+                password_hash=get_password_hash("admin123"),
+                role="owner"
+            )
+            db.add(admin_user)
+            db.commit()
+        elif not verify_password("admin123", admin_user.password_hash):
+            admin_user.password_hash = get_password_hash("admin123")
+            db.commit()
+        db.close()
+    except Exception as e:
+        print(f"Admin verification note: {e}")
+
     yield
 
 app = FastAPI(

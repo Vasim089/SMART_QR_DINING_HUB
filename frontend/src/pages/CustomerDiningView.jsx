@@ -4,7 +4,8 @@ import {
   BookOpen,
   Gamepad2,
   Tag,
-  Star
+  Star,
+  Mic
 } from 'lucide-react';
 import { VoiceAssistant } from '../components/VoiceAssistant';
 import { MenuCatalog } from '../components/MenuCatalog';
@@ -27,7 +28,7 @@ export function CustomerDiningView({ restaurantId, tableNumber, onOpenLanguageMo
   const [offers, setOffers] = useState([]);
   const [languages, setLanguages] = useState([]);
   const [currentLanguageCode, setCurrentLanguageCode] = useState('en');
-  const [activeTab, setActiveTab] = useState('assistant'); // 'assistant', 'menu', 'kids', 'offers'
+  const [activeTab, setActiveTab] = useState('assistant'); // 'menu', 'kids', 'assistant', 'offers', 'review'
   const [sessionToken, setSessionToken] = useState(null);
   const [cartItems, setCartItems] = useState([]);
   const [isReviewOpen, setIsReviewOpen] = useState(false);
@@ -102,7 +103,7 @@ export function CustomerDiningView({ restaurantId, tableNumber, onOpenLanguageMo
 
   if (isLoading) {
     return (
-      <div className="min-h-[70vh] flex flex-col items-center justify-center space-y-3 text-slate-400">
+      <div className="flex-1 min-h-[60vh] flex flex-col items-center justify-center space-y-3 text-slate-400">
         <div className="w-10 h-10 border-4 border-orange-500 border-t-transparent rounded-full animate-spin"></div>
         <p className="text-xs font-semibold text-slate-300">Connecting to your table's AI Waiter...</p>
       </div>
@@ -110,43 +111,45 @@ export function CustomerDiningView({ restaurantId, tableNumber, onOpenLanguageMo
   }
 
   return (
-    <div className="flex-1 flex flex-col relative px-3 py-2 pb-24 text-white">
+    <div className="flex-1 flex flex-col h-full overflow-hidden text-white relative">
       
-      {/* Active Tab View */}
-      {activeTab === 'assistant' && (
-        <VoiceAssistant
-          restaurantId={restaurantId}
-          tableId={tableNumber}
-          languageCode={currentLanguageCode}
-          sessionToken={sessionToken}
-          setSessionToken={setSessionToken}
-          onAddToCart={handleAddToCart}
-          cartItems={cartItems}
-        />
-      )}
+      {/* Scrollable Viewport Content */}
+      <div className="flex-1 overflow-y-auto px-3 py-2 flex flex-col">
+        {activeTab === 'assistant' && (
+          <VoiceAssistant
+            restaurantId={restaurantId}
+            tableId={tableNumber}
+            languageCode={currentLanguageCode}
+            sessionToken={sessionToken}
+            setSessionToken={setSessionToken}
+            onAddToCart={handleAddToCart}
+            cartItems={cartItems}
+          />
+        )}
 
-      {activeTab === 'menu' && (
-        <MenuCatalog
-          categories={categories}
-          onAddToCart={handleAddToCart}
-          cartItems={cartItems}
-        />
-      )}
+        {activeTab === 'menu' && (
+          <MenuCatalog
+            categories={categories}
+            onAddToCart={handleAddToCart}
+            cartItems={cartItems}
+          />
+        )}
 
-      {activeTab === 'kids' && (
-        <KidsZone
-          restaurantId={restaurantId}
-          tableId={tableNumber}
-        />
-      )}
+        {activeTab === 'kids' && (
+          <KidsZone
+            restaurantId={restaurantId}
+            tableId={tableNumber}
+          />
+        )}
 
-      {activeTab === 'offers' && (
-        <OffersView
-          offers={offers}
-          restaurantId={restaurantId}
-          tableId={tableNumber}
-        />
-      )}
+        {activeTab === 'offers' && (
+          <OffersView
+            offers={offers}
+            restaurantId={restaurantId}
+            tableId={tableNumber}
+          />
+        )}
+      </div>
 
       {/* Cart Summary Drawer Pill */}
       <CartSummary
@@ -174,68 +177,93 @@ export function CustomerDiningView({ restaurantId, tableNumber, onOpenLanguageMo
         tableId={tableNumber}
       />
 
-      {/* Bottom Floating Navigation Bar (Strictly Mobile First) */}
-      <div className="fixed bottom-0 inset-x-0 z-40 bg-slate-950/95 backdrop-blur-lg border-t border-slate-800 py-1.5 shadow-2xl max-w-[430px] mx-auto">
-        <div className="flex items-center justify-around px-1">
+      {/* Bottom Floating Navigation Dock: AI Voice Waiter in the CENTER */}
+      <nav className="shrink-0 z-40 bg-slate-950/95 backdrop-blur-xl border-t border-amber-500/20 pt-1.5 pb-2.5 shadow-[0_-10px_25px_rgba(0,0,0,0.6)]">
+        <div className="flex items-center justify-around px-2 relative">
           
-          <button
-            onClick={() => handleTabChange('assistant')}
-            className={`flex flex-col items-center py-1 px-3 rounded-2xl transition ${
-              activeTab === 'assistant'
-                ? 'text-orange-500 font-extrabold scale-105'
-                : 'text-slate-400 hover:text-slate-200'
-            }`}
-          >
-            <Sparkles className={`w-5 h-5 mb-0.5 ${activeTab === 'assistant' ? 'stroke-[2.5]' : ''}`} />
-            <span className="text-[10px] tracking-tight">AI Waiter</span>
-          </button>
-
+          {/* 1. Left 1: Menu */}
           <button
             onClick={() => handleTabChange('menu')}
-            className={`flex flex-col items-center py-1 px-3 rounded-2xl transition ${
+            className={`flex flex-col items-center py-1 px-2.5 rounded-2xl transition-all ${
               activeTab === 'menu'
-                ? 'text-orange-500 font-extrabold scale-105'
+                ? 'text-orange-400 font-black scale-105'
                 : 'text-slate-400 hover:text-slate-200'
             }`}
           >
-            <BookOpen className={`w-5 h-5 mb-0.5 ${activeTab === 'menu' ? 'stroke-[2.5]' : ''}`} />
+            <BookOpen className={`w-5 h-5 mb-0.5 ${activeTab === 'menu' ? 'stroke-[2.5] text-orange-400' : ''}`} />
             <span className="text-[10px] tracking-tight">Menu</span>
+            {activeTab === 'menu' && (
+              <span className="w-1 h-1 rounded-full bg-orange-400 mt-0.5 shadow-xs shadow-orange-400"></span>
+            )}
           </button>
 
+          {/* 2. Left 2: Kids Zone */}
           <button
             onClick={() => handleTabChange('kids')}
-            className={`flex flex-col items-center py-1 px-3 rounded-2xl transition ${
+            className={`flex flex-col items-center py-1 px-2.5 rounded-2xl transition-all ${
               activeTab === 'kids'
-                ? 'text-purple-400 font-extrabold scale-105'
+                ? 'text-purple-400 font-black scale-105'
                 : 'text-slate-400 hover:text-slate-200'
             }`}
           >
-            <Gamepad2 className={`w-5 h-5 mb-0.5 ${activeTab === 'kids' ? 'stroke-[2.5]' : ''}`} />
+            <Gamepad2 className={`w-5 h-5 mb-0.5 ${activeTab === 'kids' ? 'stroke-[2.5] text-purple-400' : ''}`} />
             <span className="text-[10px] tracking-tight">Kids Zone</span>
+            {activeTab === 'kids' && (
+              <span className="w-1 h-1 rounded-full bg-purple-400 mt-0.5 shadow-xs shadow-purple-400"></span>
+            )}
           </button>
 
+          {/* 3. CENTER: Waiter Venky (Elevated Circular Hero Button) */}
+          <div className="relative -mt-6 flex flex-col items-center">
+            <button
+              onClick={() => handleTabChange('assistant')}
+              className={`w-14 h-14 rounded-full overflow-hidden shadow-xl ring-4 ring-slate-950 transition-all duration-300 transform active:scale-95 flex items-center justify-center p-0.5 ${
+                activeTab === 'assistant'
+                  ? 'bg-linear-to-tr from-orange-600 via-amber-500 to-amber-400 shadow-orange-600/50 scale-105'
+                  : 'bg-slate-800 text-slate-300 hover:scale-105'
+              }`}
+              title="Waiter Venky"
+            >
+              <img
+                src="/venky_avatar.png"
+                alt="Waiter Venky"
+                className="w-full h-full object-cover object-top rounded-full"
+              />
+            </button>
+            <span className={`text-[10px] font-black tracking-tight mt-1 ${activeTab === 'assistant' ? 'text-amber-400' : 'text-slate-400'}`}>
+              Venky
+            </span>
+          </div>
+
+          {/* 4. Right 1: Offers */}
           <button
             onClick={() => handleTabChange('offers')}
-            className={`flex flex-col items-center py-1 px-3 rounded-2xl transition ${
+            className={`flex flex-col items-center py-1 px-2.5 rounded-2xl transition-all ${
               activeTab === 'offers'
-                ? 'text-amber-400 font-extrabold scale-105'
+                ? 'text-amber-400 font-black scale-105'
                 : 'text-slate-400 hover:text-slate-200'
             }`}
           >
-            <Tag className={`w-5 h-5 mb-0.5 ${activeTab === 'offers' ? 'stroke-[2.5]' : ''}`} />
+            <Tag className={`w-5 h-5 mb-0.5 ${activeTab === 'offers' ? 'stroke-[2.5] text-amber-400' : ''}`} />
             <span className="text-[10px] tracking-tight">Offers</span>
+            {activeTab === 'offers' && (
+              <span className="w-1 h-1 rounded-full bg-amber-400 mt-0.5 shadow-xs shadow-amber-400"></span>
+            )}
           </button>
 
+          {/* 5. Right 2: Review */}
           <button
             onClick={() => setIsReviewOpen(true)}
-            className="flex flex-col items-center py-1 px-3 rounded-2xl text-slate-400 hover:text-amber-300 transition"
+            className="flex flex-col items-center py-1 px-2.5 rounded-2xl text-slate-400 hover:text-amber-300 transition-all"
           >
             <Star className="w-5 h-5 mb-0.5" />
             <span className="text-[10px] tracking-tight">Review</span>
           </button>
 
         </div>
-      </div>
+      </nav>
     </div>
   );
 }
+
+export default CustomerDiningView;

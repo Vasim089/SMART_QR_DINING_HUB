@@ -124,13 +124,14 @@ async def call_ollama_qwen(
     menu_catalog_text = "\n".join(menu_lines)
 
     system_prompt = (
-        "You are the friendly, expert AI Waiter at 'The Royal Spice Bistro' in the Smart QR Dining Hub.\n"
-        "Your task: understand the diner's preferences and recommend the best matching food items.\n\n"
+        "You are Venky, a warm, polite, and attentive personal table waiter at 'The Royal Spice Bistro'.\n"
+        "You talk to the guest standing right by their table, making them feel welcomed and cared for.\n"
+        "Talk naturally like an experienced dining waiter: courteous, friendly, and appetizing.\n\n"
         "STRICT RULES:\n"
         "1. Recommend ONLY dishes from the provided AVAILABLE MENU. Never invent dishes.\n"
-        "2. Adhere strictly to user preferences: budget (e.g. under $14), vegetarian, spice levels, Jain food, kids food, or specials.\n"
-        "3. Keep your spoken response concise, friendly, and appetizing (2-3 sentences max). Always state the dish name and price.\n"
-        "4. If the customer asks in Hindi or another language, reply in that language.\n"
+        "2. Adhere strictly to user preferences: budget (e.g. under $14), vegetarian, spice levels, Jain food, kids food, or chef specials.\n"
+        "3. Keep your spoken response warm and concise (2-3 sentences max). Always mention the dish name and price naturally.\n"
+        "4. If the guest speaks in Hindi or another language, reply warmly in that language.\n"
         "5. At the very end of your response, output a tag listing the recommended dish IDs like this: [RECOMMENDED: id1, id2].\n\n"
         f"AVAILABLE MENU TODAY:\n{menu_catalog_text}"
     )
@@ -243,14 +244,14 @@ def intelligent_menu_agent(
         dish_name = last_mentioned_dish["name"]
         if is_spicy:
             if is_hindi:
-                ans = f"हाँ, {dish_name} मध्यम से अधिक तीखा (spicy) है। क्या आप कुछ कम तीखा पसंद करेंगे?"
+                ans = f"जी हाँ, {dish_name} बढ़िया तीखा और मसालेदार है! अगर आप चाहें तो मैं आपकी टेबल के लिए कोई कम तीखा विकल्प भी सुझा सकता हूँ।"
             else:
-                ans = f"Yes, {dish_name} is moderately spicy with rich aromatic spices. Would you like me to suggest something milder?"
+                ans = f"Yes, our {dish_name} definitely has a good kick of spice with aromatic masalas. Would you like me to bring you something milder instead?"
         else:
             if is_hindi:
-                ans = f"नहीं, {dish_name} ज़्यादा तीखा नहीं है, इसका स्वाद संतुलित और हल्का है।"
+                ans = f"जी नहीं, {dish_name} ज़्यादा तीखा बिल्कुल नहीं है, इसका स्वाद बहुत ही संतुलित और हल्का है।"
             else:
-                ans = f"No, {dish_name} is not overly spicy. It has a well-balanced and mild flavor profile."
+                ans = f"No, {dish_name} is not overly spicy at all. It has a very gentle, balanced flavor profile that guests love."
         return ans, [last_mentioned_dish]
 
     # "Suggest something less spicy" / "milder"
@@ -270,9 +271,9 @@ def intelligent_menu_agent(
             top_rec = milder_candidates[0]
             price_str = f"${top_rec['effective_price']:.2f}"
             if is_hindi:
-                ans = f"कम तीखे विकल्प के लिए मैं {top_rec['name']} ({price_str}) की सलाह दूंगा। इसका स्वाद हल्का और बेहद स्वादिष्ट है।"
+                ans = f"ज़रूर! कम तीखे विकल्प में मैं आपकी टेबल के लिए {top_rec['name']} ({price_str}) का सुझाव दूंगा। यह बहुत ही हल्का और लज़ीज़ है।"
             else:
-                ans = f"For something milder, you could try {top_rec['name']} for {price_str}. It has a gentle, creamy spice level. Would you like to try it?"
+                ans = f"Right away! For something milder, I highly suggest our {top_rec['name']} for {price_str}. It has a gentle, creamy flavor. Shall I add it to your table?"
             return ans, milder_candidates[:3]
 
     # 4. Filter dishes based on criteria
@@ -339,9 +340,9 @@ def intelligent_menu_agent(
     attrs_str = ", ".join(attrs) if attrs else ("delicious" if not is_hindi else "स्वादिष्ट")
 
     if is_hindi:
-        resp = f"मैं आपको {top_pick['name']} की सलाह दूंगा जो मात्र {top_price} में उपलब्ध है ({attrs_str})। {top_pick['description']} क्या आप इसे ऑर्डर में जोड़ना चाहते हैं या और विकल्प देखना चाहते हैं?"
+        resp = f"जी हाँ, आपकी टेबल के लिए मैं {top_pick['name']} की सलाह दूंगा जो मात्र {top_price} में उपलब्ध है ({attrs_str})। {top_pick['description']} क्या मैं इसे आपके लिए ऑर्डर में जोड़ दूँ?"
     else:
-        resp = f"I recommend {top_pick['name']} for {top_price}. It is a {attrs_str} option on our menu. {top_pick['description']} Would you like to explore more options?"
+        resp = f"Right away! For your table today, I'd recommend our {top_pick['name']} for {top_price}. It's a wonderful {attrs_str} specialty. {top_pick['description']} Shall I add this to your order?"
 
     return resp, matched[:3]
 

@@ -1,7 +1,5 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
-  Mic,
-  MicOff,
   Volume2,
   VolumeX,
   Sparkles,
@@ -9,11 +7,11 @@ import {
   Leaf,
   PlusCircle,
   CheckCircle2,
-  RotateCcw,
   Bot
 } from 'lucide-react';
 import { useSpeech } from '../hooks/useSpeech';
 import { sendChatMessage, trackEvent, getOllamaStatus } from '../services/api';
+import { VenkyAvatar } from './VenkyAvatar';
 
 export function VoiceAssistant({
   restaurantId,
@@ -24,24 +22,17 @@ export function VoiceAssistant({
   onAddToCart,
   cartItems
 }) {
-  const [currentQuery, setCurrentQuery] = useState('');
-  const [agentResponse, setAgentResponse] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [recommendedDishes, setRecommendedDishes] = useState([]);
   const [ttsEnabled, setTtsEnabled] = useState(true);
   const [ollamaInfo, setOllamaInfo] = useState({ online: false, target_model: 'qwen2.5:3b', model_available: false });
-  const [conversationTurn, setConversationTurn] = useState(0);
+  const [hasSpokenWelcome, setHasSpokenWelcome] = useState(false);
 
-  // Setup initial welcome greeting
-  useEffect(() => {
-    const welcomeEn = "Hi! Welcome to our restaurant. I'm your dining assistant. What would you like to eat today? You can tell me your preferences, and I'll help you find the perfect dish.";
-    const welcomeHi = "नमस्ते! हमारे रेस्तरां में आपका स्वागत है। मैं आपका AI डाइनिंग असिस्टेंट हूँ। आप अपनी पसंद बताइए, और मैं आपके लिए सबसे उपयुक्त व्यंजन सुझाऊँगा!";
+  const welcomeEn = "Hello! I am Venky, your personal waiter for today. It is my absolute pleasure to serve your table. What can I get started for you today? Any drinks, appetizers, or can I recommend our chef's special?";
+  const welcomeHi = "नमस्ते! मैं आपकी टेबल का वेटर वेंकी हूँ। आज आपकी सेवा करने में मुझे बहुत खुशी होगी। आप क्या लेना पसंद करेंगे? क्या मैं आपके लिए कुछ खास सुझाव दूँ?";
+  const initialGreeting = languageCode === 'hi' ? welcomeHi : welcomeEn;
 
-    const initialGreeting = languageCode === 'hi' ? welcomeHi : welcomeEn;
-    setAgentResponse(initialGreeting);
-  }, [languageCode]);
-
-  // Hook for STT & TTS
+  // Speech Recognition & Synthesis Hook
   const {
     isListening,
     isSpeaking,
@@ -57,7 +48,7 @@ export function VoiceAssistant({
     }
   });
 
-  // Check Ollama status
+  // Check Ollama Local AI Status
   useEffect(() => {
     async function checkOllama() {
       const status = await getOllamaStatus();
@@ -68,18 +59,28 @@ export function VoiceAssistant({
     return () => clearInterval(interval);
   }, []);
 
-  // Process voice input
+  // Speak Venky's welcome greeting on arrival
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      if (ttsEnabled && !hasSpokenWelcome) {
+        speak(initialGreeting, languageCode);
+        setHasSpokenWelcome(true);
+      }
+    }, 500);
+    return () => clearTimeout(timer);
+  }, [languageCode, ttsEnabled]);
+
+  // Process diner's voice conversation
   const handleVoiceQuery = async (queryText) => {
     if (!queryText || !queryText.trim() || isLoading) return;
 
-    setCurrentQuery(queryText);
     setIsLoading(true);
 
     trackEvent({
       restaurantId,
       tableId,
       eventType: 'voice_interaction',
-      eventData: { query: queryText }
+      eventData: { query: queryText, waiter: 'Venky' }
     });
 
     try {
@@ -95,235 +96,199 @@ export function VoiceAssistant({
         setSessionToken(data.session_token);
       }
 
-      setAgentResponse(data.response_text);
-      setConversationTurn((t) => t + 1);
-
       if (data.recommended_dishes && data.recommended_dishes.length > 0) {
         setRecommendedDishes(data.recommended_dishes);
       }
 
-      // Automatically speak the response aloud
+      // Venky speaks response aloud
       if (ttsEnabled && data.speech_text) {
         speak(data.speech_text, languageCode);
       }
     } catch (err) {
-      console.error('AI Voice Agent Error:', err);
-      setAgentResponse("I'm having trouble connecting to the kitchen recommendations. Please tap the mic and try again!");
+      console.error('Waiter Venky Voice Error:', err);
+      if (ttsEnabled) {
+        speak("Pardon me, I couldn't hear that clearly. Please tap and tell me your preference again.", languageCode);
+      }
     } finally {
       setIsLoading(false);
     }
   };
 
-  const sampleVoicePrompts = [
-    "Suggest something spicy and vegetarian under $14",
-    "Is it spicy?",
-    "Suggest something less spicy",
-    "Do you have Jain food?",
-    "What food is suitable for children?",
-    "What are today's chef specials?"
-  ];
+  // Center Orb click handler
+  const handleOrbClick = () => {
+    if (isSpeaking) {
+      stopSpeaking();
+      return;
+    }
+
+    if (isListening) {
+      stopListening();
+      return;
+    }
+
+    if (!hasSpokenWelcome) {
+      setHasSpokenWelcome(true);
+      speak(initialGreeting, languageCode);
+      return;
+    }
+
+    startListening();
+  };
 
   return (
-    <div className="flex flex-col min-h-[calc(100vh-140px)] bg-slate-900 text-white rounded-3xl p-5 shadow-2xl border border-slate-800 relative overflow-hidden">
+    <div className="flex-1 flex flex-col justify-between py-2 text-white relative h-full">
       
-      {/* Background ambient lighting */}
-      <div className="absolute top-1/4 left-1/2 -translate-x-1/2 -translate-y-1/2 w-96 h-96 bg-orange-600/15 rounded-full blur-3xl pointer-events-none"></div>
-
-      {/* Top Status & Controls */}
-      <div className="flex items-center justify-between z-10 border-b border-slate-800 pb-3 mb-4">
-        <div className="flex items-center space-x-2">
-          <div className="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse"></div>
-          <div>
-            <h2 className="text-sm font-extrabold text-white flex items-center gap-1.5">
-              <span>AI Voice Waiter</span>
-              {ollamaInfo.online && ollamaInfo.model_available ? (
-                <span className="text-[10px] bg-emerald-500/20 text-emerald-400 border border-emerald-500/40 px-2 py-0.5 rounded-full font-bold">
-                  Qwen 2.5 3B Live
-                </span>
-              ) : (
-                <span className="text-[10px] bg-orange-500/20 text-orange-300 border border-orange-500/30 px-2 py-0.5 rounded-full font-bold">
-                  Voice Agent Ready
-                </span>
-              )}
-            </h2>
-            <p className="text-[11px] text-slate-400">Direct voice dining assistance</p>
+      {/* Top Waiter Badge with Small Avatar */}
+      <div className="flex items-center justify-between px-2 pt-1 pb-2">
+        <div className="flex items-center space-x-2.5">
+          <VenkyAvatar size="sm" isListening={isListening} isSpeaking={isSpeaking} />
+          <div className="flex flex-col">
+            <span className="text-xs font-black tracking-wide text-amber-300 flex items-center gap-1.5">
+              <span>Venky</span>
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
+            </span>
+            <span className="text-[10px] text-slate-400 font-medium">Your Table Waiter</span>
           </div>
         </div>
 
-        {/* TTS Speaker Mute/Unmute */}
+        {/* Audio Mute/Unmute Toggle */}
         <button
           onClick={() => {
             if (isSpeaking) stopSpeaking();
             setTtsEnabled(!ttsEnabled);
           }}
-          className={`p-2 rounded-xl border transition ${
+          className={`flex items-center space-x-1 px-2.5 py-1 rounded-full text-[11px] font-bold border transition ${
             ttsEnabled
-              ? 'bg-orange-500/20 text-orange-400 border-orange-500/40'
-              : 'bg-slate-800 text-slate-500 border-slate-700'
+              ? 'bg-amber-500/20 text-amber-300 border-amber-500/40 shadow-xs'
+              : 'bg-slate-900 text-slate-500 border-slate-800'
           }`}
-          title={ttsEnabled ? "Voice Output Active" : "Voice Output Muted"}
+          title={ttsEnabled ? "Venky Voice On" : "Voice Muted"}
         >
-          {ttsEnabled ? <Volume2 className="w-4 h-4" /> : <VolumeX className="w-4 h-4" />}
+          {ttsEnabled ? <Volume2 className="w-3.5 h-3.5 text-amber-400" /> : <VolumeX className="w-3.5 h-3.5" />}
+          <span>{ttsEnabled ? 'Voice On' : 'Muted'}</span>
         </button>
       </div>
 
-      {/* MAIN CENTER STAGE: Direct Voice Agent Orb */}
-      <div className="flex-1 flex flex-col items-center justify-center text-center z-10 py-6">
+      {/* HERO VOICE STAGE: Realistic Waiter Venky Avatar & Interaction */}
+      <div className="my-auto py-6 flex flex-col items-center justify-center text-center select-none relative">
         
-        {/* Animated Glowing Voice Orb / Mic Circle */}
-        <div className="relative mb-6">
-          {/* Pulsing ring waves when active */}
-          {(isListening || isSpeaking) && (
-            <>
-              <div className="absolute inset-0 -m-4 rounded-full border-2 border-orange-500/40 animate-ping"></div>
-              <div className="absolute inset-0 -m-8 rounded-full border border-amber-500/20 animate-pulse"></div>
-            </>
-          )}
-
-          <button
-            onClick={isListening ? stopListening : startListening}
-            className={`w-32 h-32 rounded-full flex flex-col items-center justify-center transition-all duration-300 transform shadow-2xl relative select-none ${
-              isListening
-                ? 'bg-linear-to-tr from-rose-600 to-red-500 scale-105 ring-8 ring-rose-500/30 shadow-rose-600/50'
-                : isSpeaking
-                ? 'bg-linear-to-tr from-amber-500 to-orange-600 scale-105 ring-8 ring-orange-500/30 shadow-orange-600/50'
-                : 'bg-linear-to-tr from-orange-600 to-amber-500 hover:scale-105 ring-4 ring-orange-500/20 shadow-orange-600/40'
-            }`}
-          >
-            {isListening ? (
-              <>
-                <MicOff className="w-10 h-10 text-white mb-1 animate-pulse" />
-                <span className="text-[11px] font-black uppercase tracking-wider text-white">Listening</span>
-              </>
-            ) : isSpeaking ? (
-              <>
-                <Volume2 className="w-10 h-10 text-white mb-1 animate-bounce" />
-                <span className="text-[11px] font-black uppercase tracking-wider text-white">Speaking</span>
-              </>
-            ) : (
-              <>
-                <Mic className="w-10 h-10 text-white mb-1" />
-                <span className="text-[11px] font-black uppercase tracking-wider text-white">Tap to Speak</span>
-              </>
-            )}
-          </button>
+        {/* Venky Interactive Avatar (Tap to talk) */}
+        <div className="relative mb-3.5">
+          <VenkyAvatar
+            size="lg"
+            isListening={isListening}
+            isSpeaking={isSpeaking}
+            onClick={handleOrbClick}
+          />
         </div>
 
-        {/* Live Audio Waves Visualizer */}
-        <div className="flex items-end justify-center space-x-1.5 h-8 mb-4">
-          <span className={`w-1.5 bg-orange-500 rounded-full ${isListening || isSpeaking ? 'wave-animate-1' : 'h-2'}`}></span>
-          <span className={`w-1.5 bg-amber-400 rounded-full ${isListening || isSpeaking ? 'wave-animate-2' : 'h-3'}`}></span>
-          <span className={`w-1.5 bg-orange-600 rounded-full ${isListening || isSpeaking ? 'wave-animate-3' : 'h-2'}`}></span>
-          <span className={`w-1.5 bg-amber-500 rounded-full ${isListening || isSpeaking ? 'wave-animate-4' : 'h-4'}`}></span>
-          <span className={`w-1.5 bg-orange-400 rounded-full ${isListening || isSpeaking ? 'wave-animate-5' : 'h-2'}`}></span>
+        {/* Action Title */}
+        <div className="mb-2">
+          <h3 className="text-sm font-black text-white flex items-center justify-center gap-1.5">
+            <span>
+              {isSpeaking ? 'Venky is speaking...' : isListening ? 'Venky is listening...' : 'Talk with Venky'}
+            </span>
+          </h3>
+          <p className="text-[11px] text-slate-400 font-medium">
+            {isSpeaking
+              ? 'Listen to recommendations'
+              : isListening
+              ? 'Speak your order naturally'
+              : 'Tap Venky to speak or order food'}
+          </p>
         </div>
 
-        {/* Real-time Status / User Query */}
-        <div className="max-w-md w-full px-4 mb-2">
+        {/* Live Equalizer Soundwaves */}
+        <div className="flex items-end justify-center space-x-1.5 h-7 mb-2.5">
+          <span className={`w-1.5 bg-amber-400 rounded-full transition-all duration-200 ${isListening || isSpeaking ? 'h-7 animate-pulse' : 'h-2'}`}></span>
+          <span className={`w-1.5 bg-orange-500 rounded-full transition-all duration-200 ${isListening || isSpeaking ? 'h-5 animate-pulse [animation-delay:0.1s]' : 'h-3'}`}></span>
+          <span className={`w-1.5 bg-amber-300 rounded-full transition-all duration-200 ${isListening || isSpeaking ? 'h-8 animate-pulse [animation-delay:0.2s]' : 'h-2'}`}></span>
+          <span className={`w-1.5 bg-orange-600 rounded-full transition-all duration-200 ${isListening || isSpeaking ? 'h-6 animate-pulse [animation-delay:0.3s]' : 'h-4'}`}></span>
+          <span className={`w-1.5 bg-amber-500 rounded-full transition-all duration-200 ${isListening || isSpeaking ? 'h-5 animate-pulse [animation-delay:0.4s]' : 'h-2'}`}></span>
+        </div>
+
+        {/* Real-time Dynamic Waiter Status Caption */}
+        <div className="px-4 min-h-[36px] flex items-center justify-center">
           {isListening ? (
-            <div className="p-3 rounded-2xl bg-slate-800/80 border border-slate-700 text-amber-300 font-semibold text-sm">
-              🎙️ {interimText ? `"${interimText}..."` : "Listening... Speak your preference!"}
+            <div className="px-3.5 py-1.5 rounded-full bg-rose-950/80 border border-rose-800/80 text-amber-300 text-xs font-semibold animate-pulse">
+              🎙️ {interimText ? `"${interimText}..."` : "Venky is listening attentively..."}
+            </div>
+          ) : isSpeaking ? (
+            <div className="px-3.5 py-1.5 rounded-full bg-amber-950/80 border border-amber-800/80 text-amber-300 text-xs font-semibold flex items-center gap-1.5">
+              <Bot className="w-3.5 h-3.5 text-amber-400" />
+              <span>Venky is speaking to your table...</span>
             </div>
           ) : isLoading ? (
-            <div className="text-sm font-semibold text-orange-400 flex items-center justify-center gap-2">
-              <div className="w-2 h-2 rounded-full bg-orange-400 animate-bounce"></div>
-              <div className="w-2 h-2 rounded-full bg-orange-400 animate-bounce [animation-delay:0.2s]"></div>
-              <span>Checking fresh daily menu & chef specials...</span>
+            <div className="px-3.5 py-1.5 rounded-full bg-slate-900 border border-slate-800 text-orange-400 text-xs font-semibold flex items-center gap-2">
+              <Sparkles className="w-3.5 h-3.5 animate-spin" />
+              <span>Venky is checking with the chef...</span>
             </div>
-          ) : currentQuery ? (
-            <div className="text-xs text-slate-400">
-              You asked: <span className="text-slate-200 font-semibold">"{currentQuery}"</span>
-            </div>
-          ) : null}
+          ) : (
+            <p className="text-xs text-slate-400 font-medium max-w-xs">
+              "Venky, recommend something spicy" or "What's good for dinner?"
+            </p>
+          )}
         </div>
-
-        {/* AI Voice Agent Spoken Response Subtitle Card */}
-        {agentResponse && !isListening && (
-          <div className="max-w-md w-full p-4 rounded-2xl bg-slate-800/90 border border-slate-700/80 text-white shadow-lg text-sm leading-relaxed mb-4 animate-fadeIn">
-            <div className="flex items-center space-x-1.5 text-xs text-orange-400 font-bold mb-1">
-              <Bot className="w-3.5 h-3.5" />
-              <span>AI Waiter:</span>
-            </div>
-            <p className="text-slate-100">{agentResponse}</p>
-          </div>
-        )}
-
       </div>
 
-      {/* RECOMMENDED DISH CARDS: Dynamically Appears Below Voice Agent */}
+      {/* DYNAMIC DISH RECOMMENDATIONS: Appear seamlessly when Venky suggests items */}
       {recommendedDishes.length > 0 && (
-        <div className="z-10 bg-slate-800/80 border border-slate-700 p-4 rounded-2xl mb-4">
-          <div className="flex items-center justify-between text-xs font-bold text-amber-300 mb-2.5">
+        <div className="mb-2 bg-slate-900/90 border border-amber-500/20 rounded-2xl p-3 shadow-xl max-h-[250px] overflow-y-auto no-scrollbar backdrop-blur-md">
+          <div className="flex items-center justify-between text-xs font-black text-amber-400 mb-2 px-1">
             <span className="flex items-center gap-1.5">
-              <Sparkles className="w-4 h-4 text-orange-400" />
-              Recommended From Today's Menu:
+              <Sparkles className="w-3.5 h-3.5 text-orange-400" />
+              Venky's Table Recommendations:
             </span>
-            <span className="text-slate-400 text-[11px]">Strictly Available Today</span>
+            <span className="text-[10px] text-emerald-400 font-bold">Available Now</span>
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+          <div className="space-y-2">
             {recommendedDishes.map((dish) => {
               const inCart = cartItems?.find((item) => item.id === dish.id);
               return (
                 <div
                   key={dish.id}
-                  className="p-3 bg-slate-900/90 rounded-xl border border-slate-700/90 flex flex-col justify-between"
+                  className="p-2.5 bg-slate-950/90 rounded-xl border border-slate-800/90 flex items-center justify-between gap-3 hover:border-amber-500/40 transition"
                 >
-                  <div>
+                  <div className="flex items-center space-x-2.5 min-w-0">
                     {dish.image_url && (
                       <img
                         src={dish.image_url}
                         alt={dish.name}
-                        className="w-full h-20 object-cover rounded-lg mb-2"
+                        className="w-12 h-12 rounded-lg object-cover shrink-0 border border-slate-700/80"
                       />
                     )}
-                    <div className="flex items-start justify-between gap-1">
-                      <h4 className="font-bold text-white text-sm">{dish.name}</h4>
-                      <span className="font-extrabold text-orange-400 text-sm whitespace-nowrap">
-                        ${dish.effective_price.toFixed(2)}
-                      </span>
+                    <div className="min-w-0">
+                      <h4 className="font-bold text-white text-xs truncate">{dish.name}</h4>
+                      <div className="flex items-center gap-1.5 text-[10px] text-slate-400 mt-0.5">
+                        <span className="font-black text-amber-400">${dish.effective_price.toFixed(2)}</span>
+                        {dish.is_vegetarian && (
+                          <span className="text-emerald-400 flex items-center gap-0.5"><Leaf className="w-2.5 h-2.5" /> Veg</span>
+                        )}
+                        {dish.is_spicy && (
+                          <span className="text-rose-400 flex items-center gap-0.5"><Flame className="w-2.5 h-2.5" /> Spicy</span>
+                        )}
+                      </div>
                     </div>
-
-                    <div className="flex flex-wrap gap-1 my-1.5">
-                      {dish.is_vegetarian && (
-                        <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded-sm bg-emerald-950 text-emerald-300 border border-emerald-800 flex items-center gap-0.5">
-                          <Leaf className="w-2.5 h-2.5" /> Veg
-                        </span>
-                      )}
-                      {dish.is_spicy && (
-                        <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded-sm bg-rose-950 text-rose-300 border border-rose-800 flex items-center gap-0.5">
-                          <Flame className="w-2.5 h-2.5" /> Spicy
-                        </span>
-                      )}
-                      {dish.is_today_special && (
-                        <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-sm bg-amber-950 text-amber-300 border border-amber-800">
-                          ⭐ Special
-                        </span>
-                      )}
-                    </div>
-
-                    {dish.description && (
-                      <p className="text-xs text-slate-400 line-clamp-2 mt-1">{dish.description}</p>
-                    )}
                   </div>
 
                   <button
                     onClick={() => onAddToCart && onAddToCart(dish)}
-                    className={`mt-2.5 w-full py-1.5 px-2.5 rounded-lg text-xs font-bold flex items-center justify-center space-x-1 transition ${
+                    className={`py-1.5 px-3 rounded-lg text-xs font-bold shrink-0 transition flex items-center space-x-1 ${
                       inCart
                         ? 'bg-emerald-600 text-white'
-                        : 'bg-orange-600 hover:bg-orange-700 text-white'
+                        : 'bg-linear-to-r from-orange-600 to-amber-600 hover:from-orange-500 hover:to-amber-500 text-white shadow-sm'
                     }`}
                   >
                     {inCart ? (
                       <>
-                        <CheckCircle2 className="w-3.5 h-3.5" />
-                        <span>Added ({inCart.quantity})</span>
+                        <CheckCircle2 className="w-3 h-3" />
+                        <span>({inCart.quantity})</span>
                       </>
                     ) : (
                       <>
-                        <PlusCircle className="w-3.5 h-3.5" />
-                        <span>Add to Table Order</span>
+                        <PlusCircle className="w-3 h-3" />
+                        <span>Add</span>
                       </>
                     )}
                   </button>
@@ -334,24 +299,8 @@ export function VoiceAssistant({
         </div>
       )}
 
-      {/* QUICK VOICE PROMPTS: Tap to say aloud */}
-      <div className="z-10 pt-2 border-t border-slate-800">
-        <span className="text-[11px] font-bold text-slate-400 block mb-1.5">
-          Or tap to ask your AI Waiter:
-        </span>
-        <div className="flex items-center space-x-1.5 overflow-x-auto no-scrollbar pb-1">
-          {sampleVoicePrompts.map((promptText, idx) => (
-            <button
-              key={idx}
-              onClick={() => handleVoiceQuery(promptText)}
-              className="text-xs font-medium px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 hover:text-orange-400 text-slate-200 border border-slate-700 whitespace-nowrap transition shadow-xs"
-            >
-              "{promptText}"
-            </button>
-          ))}
-        </div>
-      </div>
-
     </div>
   );
 }
+
+export default VoiceAssistant;

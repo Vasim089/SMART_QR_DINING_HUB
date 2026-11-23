@@ -1,5 +1,5 @@
 import React from 'react';
-import { UtensilsCrossed, Globe, UserCheck } from 'lucide-react';
+import { UserCheck } from 'lucide-react';
 
 export function Navbar({
   restaurant,
@@ -18,56 +18,53 @@ export function Navbar({
   const flag = flagMap[currentLanguage?.language_code] || '🌐';
 
   return (
-    <header className="sticky top-0 z-40 bg-slate-900/95 backdrop-blur-md border-b border-slate-800 px-4 py-2.5">
-      <div className="flex items-center justify-between">
+    <header className="sticky top-0 z-40 bg-transparent px-4 pt-3 pb-1 shrink-0">
+      <div className="flex items-center justify-between relative">
         
-        {/* Brand & Table Badge */}
-        <div className="flex items-center space-x-2.5">
-          <div className="w-8 h-8 rounded-xl bg-linear-to-tr from-orange-600 to-amber-500 flex items-center justify-center text-white shadow-md shadow-orange-600/30">
-            <UtensilsCrossed className="w-4 h-4" />
-          </div>
-          <div>
-            <h1 className="text-xs font-black text-white leading-tight tracking-wide">
-              {restaurant?.name || 'Smart Dining Hub'}
-            </h1>
-            <div className="flex items-center space-x-1.5 text-[10px] text-slate-400 mt-0.5">
-              {tableNumber ? (
-                <span className="inline-flex items-center px-1.5 py-0.2 rounded-md font-bold bg-orange-500/20 text-orange-400 border border-orange-500/30">
-                  Table #{tableNumber}
-                </span>
-              ) : null}
-              <span className="text-emerald-400 font-semibold flex items-center gap-1">
-                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
-                AI Active
-              </span>
-            </div>
-          </div>
+        {/* Left balance spacer (matches right button width for perfect centering) */}
+        <div className="w-14 flex items-center justify-start">
+          {/* Subtle logo or empty spacer */}
         </div>
 
-        {/* Right Action buttons */}
-        <div className="flex items-center space-x-1.5">
-          {/* Language Selector Pill */}
+        {/* Center: The Royal Spice Bistro & TABLE #5 directly on text (No card, no bg) */}
+        <div className="flex-1 flex flex-col items-center justify-center text-center">
+          <h1 className="text-sm font-black text-white tracking-tight">
+            {restaurant?.name || 'The Royal Spice Bistro'}
+          </h1>
+          {tableNumber ? (
+            <div className="text-xs font-black text-amber-400 tracking-widest uppercase mt-0.5">
+              TABLE #{tableNumber}
+            </div>
+          ) : null}
+        </div>
+
+        {/* Right: Language Selector Pill */}
+        <div className="w-14 flex items-center justify-end">
           <button
             onClick={onOpenLanguageModal}
-            className="flex items-center space-x-1 px-2.5 py-1 text-xs font-bold rounded-full bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700/80 transition shadow-xs"
+            className="flex items-center space-x-1 px-2.5 py-1 text-xs font-bold rounded-full bg-slate-900/80 hover:bg-slate-800 text-slate-200 border border-slate-800 transition shadow-xs active:scale-95"
             title="Change Language"
           >
-            <span>{flag}</span>
-            <span className="uppercase text-[11px]">{currentLanguage?.language_code || 'EN'}</span>
+            <span className="text-xs">{flag}</span>
+            <span className="uppercase text-[10px] font-black text-amber-300">
+              {currentLanguage?.language_code || 'EN'}
+            </span>
           </button>
 
-          {/* Only shown when in Owner mode to return to dining */}
+          {/* Only shown in Admin/Owner preview mode */}
           {mode === 'owner' && (
             <button
               onClick={() => setMode('customer')}
-              className="flex items-center space-x-1 px-2.5 py-1 text-xs font-bold rounded-lg bg-orange-600 text-white hover:bg-orange-700 transition shadow-xs"
+              className="ml-2 flex items-center space-x-1 px-2 py-1 text-xs font-bold rounded-lg bg-orange-600 text-white hover:bg-orange-700 transition"
             >
               <UserCheck className="w-3.5 h-3.5" />
-              <span>Dining</span>
             </button>
           )}
         </div>
+
       </div>
     </header>
   );
 }
+
+export default Navbar;

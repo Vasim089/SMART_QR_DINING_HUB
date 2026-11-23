@@ -192,7 +192,7 @@ INSERT INTO restaurants (id, name, location, settings) VALUES
 
 -- 2. Admin User (Password: admin123)
 INSERT INTO admin_users (id, restaurant_id, name, email, password_hash, role) VALUES 
-(1, 1, 'Chef Vikram & Team', 'admin@dininghub.com', '$2b$12$EixZaYVK1fsbw1ZfbX3OXePaWxn96p36WQoeG6Lruj3vjPGga31lW', 'owner');
+(1, 1, 'Chef Vikram & Team', 'admin@dininghub.com', '$2b$12$PoZDQQpWJHrF4NhzMx/ovesKR2PPwbWZggNCWwgxfIp6hYzrg0kDW', 'owner');
 
 -- 3. Restaurant Tables
 INSERT INTO restaurant_tables (restaurant_id, table_number, qr_identifier, is_active) VALUES 
