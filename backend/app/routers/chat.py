@@ -1,12 +1,32 @@
 import uuid
 from typing import Optional
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Response, Query
 from sqlalchemy.orm import Session
 from app.database import get_db
 from app import models, schemas
 from app.ai_service import generate_ai_response, check_ollama_status
+from app.tts_service import generate_neural_speech
 
 router = APIRouter(prefix="/chat", tags=["AI Dining Assistant"])
+
+@router.get("/tts")
+async def get_neural_tts(
+    text: str = Query(..., description="Text to synthesize for Waiter Venky"),
+    language: str = Query("en", description="Language code (en, hi, es, fr)")
+):
+    """Generates natural studio-grade audio for Waiter Venky via Edge-TTS (100% Free)."""
+    try:
+        audio = await generate_neural_speech(text, language)
+        return Response(
+            content=audio,
+            media_type="audio/mpeg",
+            headers={
+                "Cache-Control": "public, max-age=86400",
+                "Content-Disposition": "inline; filename=venky_voice.mp3"
+            }
+        )
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"TTS generation error: {e}")
 
 @router.get("/ollama-status")
 async def get_ollama_status():

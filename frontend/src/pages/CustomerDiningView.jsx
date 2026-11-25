@@ -8,6 +8,7 @@ import {
   Mic
 } from 'lucide-react';
 import { VoiceAssistant } from '../components/VoiceAssistant';
+import { VenkyAvatar } from '../components/VenkyAvatar';
 import { MenuCatalog } from '../components/MenuCatalog';
 import { KidsZone } from '../components/KidsZone';
 import { OffersView } from '../components/OffersView';
@@ -224,11 +225,7 @@ export function CustomerDiningView({ restaurantId, tableNumber, onOpenLanguageMo
               }`}
               title="Waiter Venky"
             >
-              <img
-                src="/venky_avatar.png"
-                alt="Waiter Venky"
-                className="w-full h-full object-cover object-top rounded-full"
-              />
+              <VenkyAvatar size="sm" />
             </button>
             <span className={`text-[10px] font-black tracking-tight mt-1 ${activeTab === 'assistant' ? 'text-amber-400' : 'text-slate-400'}`}>
               Venky

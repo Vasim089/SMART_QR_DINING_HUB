@@ -1,3 +1,4 @@
+from datetime import date
 from starlette.testclient import TestClient
 from app.main import app
 from app.database import SessionLocal
@@ -5,8 +6,44 @@ from app import models
 
 client = TestClient(app)
 
+def ensure_test_seed_data():
+    """Ensure today's daily availability records exist for dynamic tests."""
+    db = SessionLocal()
+    try:
+        today = date.today()
+        # Ensure Chicken Wings is marked Sold Out today
+        cw = db.query(models.MenuItem).filter(models.MenuItem.name == "Chicken Wings").first()
+        if cw:
+            cw_avail = db.query(models.DailyMenuAvailability).filter(
+                models.DailyMenuAvailability.menu_item_id == cw.id,
+                models.DailyMenuAvailability.menu_date == today
+            ).first()
+            if not cw_avail:
+                db.add(models.DailyMenuAvailability(menu_item_id=cw.id, menu_date=today, is_available=False, is_today_special=False))
+            else:
+                cw_avail.is_available = False
+
+        # Ensure Veggie Burger is marked as Today's Special
+        vb = db.query(models.MenuItem).filter(models.MenuItem.name == "Veggie Burger").first()
+        if vb:
+            vb_avail = db.query(models.DailyMenuAvailability).filter(
+                models.DailyMenuAvailability.menu_item_id == vb.id,
+                models.DailyMenuAvailability.menu_date == today
+            ).first()
+            if not vb_avail:
+                db.add(models.DailyMenuAvailability(menu_item_id=vb.id, menu_date=today, is_available=True, is_today_special=True, special_price=8.99))
+            else:
+                vb_avail.is_available = True
+                vb_avail.is_today_special = True
+                vb_avail.special_price = 8.99
+
+        db.commit()
+    finally:
+        db.close()
+
 def test_full_system():
     print("Testing Smart QR Dining Hub System Endpoints...\n")
+    ensure_test_seed_data()
 
     # 1. Health check
     resp = client.get("/")
@@ -153,7 +190,14 @@ def test_full_system():
         headers=auth_header
     )
 
-    print("\n🎉 ALL 10 TEST SUITES PASSED PERFECTLY!\n")
+    # 11. Verify Edge-TTS Neural Voice Generation for Waiter Venky
+    tts_resp = client.get("/api/chat/tts", params={"text": "Namaste! I am Venky, your personal table waiter.", "language": "en"})
+    assert tts_resp.status_code == 200, f"TTS generation failed: {tts_resp.text}"
+    assert tts_resp.headers.get("content-type") == "audio/mpeg"
+    assert len(tts_resp.content) > 1000, "TTS audio stream should contain valid MP3 data"
+    print(f"✓ Waiter Venky Edge-TTS Neural Voice: Synthesized {len(tts_resp.content)} bytes of natural MP3 speech successfully")
+
+    print("\n🎉 ALL 11 TEST SUITES PASSED PERFECTLY!\n")
 
 if __name__ == "__main__":
     test_full_system()

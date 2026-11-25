@@ -7,7 +7,9 @@ import {
   Leaf,
   PlusCircle,
   CheckCircle2,
-  Bot
+  Bot,
+  NotebookPen,
+  PenLine
 } from 'lucide-react';
 import { useSpeech } from '../hooks/useSpeech';
 import { sendChatMessage, trackEvent, getOllamaStatus } from '../services/api';
@@ -137,7 +139,7 @@ export function VoiceAssistant({
 
   return (
     <div className="flex-1 flex flex-col justify-between py-2 text-white relative h-full">
-      
+
       {/* Top Waiter Badge with Small Avatar */}
       <div className="flex items-center justify-between px-2 pt-1 pb-2">
         <div className="flex items-center space-x-2.5">
@@ -157,11 +159,10 @@ export function VoiceAssistant({
             if (isSpeaking) stopSpeaking();
             setTtsEnabled(!ttsEnabled);
           }}
-          className={`flex items-center space-x-1 px-2.5 py-1 rounded-full text-[11px] font-bold border transition ${
-            ttsEnabled
-              ? 'bg-amber-500/20 text-amber-300 border-amber-500/40 shadow-xs'
-              : 'bg-slate-900 text-slate-500 border-slate-800'
-          }`}
+          className={`flex items-center space-x-1 px-2.5 py-1 rounded-full text-[11px] font-bold border transition ${ttsEnabled
+            ? 'bg-amber-500/20 text-amber-300 border-amber-500/40 shadow-xs'
+            : 'bg-slate-900 text-slate-500 border-slate-800'
+            }`}
           title={ttsEnabled ? "Venky Voice On" : "Voice Muted"}
         >
           {ttsEnabled ? <Volume2 className="w-3.5 h-3.5 text-amber-400" /> : <VolumeX className="w-3.5 h-3.5" />}
@@ -171,7 +172,7 @@ export function VoiceAssistant({
 
       {/* HERO VOICE STAGE: Realistic Waiter Venky Avatar & Interaction */}
       <div className="my-auto py-6 flex flex-col items-center justify-center text-center select-none relative">
-        
+
         {/* Venky Interactive Avatar (Tap to talk) */}
         <div className="relative mb-3.5">
           <VenkyAvatar
@@ -183,20 +184,7 @@ export function VoiceAssistant({
         </div>
 
         {/* Action Title */}
-        <div className="mb-2">
-          <h3 className="text-sm font-black text-white flex items-center justify-center gap-1.5">
-            <span>
-              {isSpeaking ? 'Venky is speaking...' : isListening ? 'Venky is listening...' : 'Talk with Venky'}
-            </span>
-          </h3>
-          <p className="text-[11px] text-slate-400 font-medium">
-            {isSpeaking
-              ? 'Listen to recommendations'
-              : isListening
-              ? 'Speak your order naturally'
-              : 'Tap Venky to speak or order food'}
-          </p>
-        </div>
+
 
         {/* Live Equalizer Soundwaves */}
         <div className="flex items-end justify-center space-x-1.5 h-7 mb-2.5">
@@ -207,28 +195,38 @@ export function VoiceAssistant({
           <span className={`w-1.5 bg-amber-500 rounded-full transition-all duration-200 ${isListening || isSpeaking ? 'h-5 animate-pulse [animation-delay:0.4s]' : 'h-2'}`}></span>
         </div>
 
-        {/* Real-time Dynamic Waiter Status Caption */}
-        <div className="px-4 min-h-[36px] flex items-center justify-center">
-          {isListening ? (
-            <div className="px-3.5 py-1.5 rounded-full bg-rose-950/80 border border-rose-800/80 text-amber-300 text-xs font-semibold animate-pulse">
-              🎙️ {interimText ? `"${interimText}..."` : "Venky is listening attentively..."}
+        {/* Active Waiter Interactive State Pill */}
+        {isListening ? (
+          <div className="flex flex-col items-center max-w-[280px]">
+            <div className="inline-flex items-center space-x-2 px-3 py-1 rounded-full bg-amber-500/20 border border-amber-400/50 text-amber-300 text-xs font-bold shadow-lg animate-pulse">
+              <PenLine className="w-3.5 h-3.5 text-amber-400 animate-bounce" />
+              <span>Venky is taking down your order...</span>
             </div>
-          ) : isSpeaking ? (
-            <div className="px-3.5 py-1.5 rounded-full bg-amber-950/80 border border-amber-800/80 text-amber-300 text-xs font-semibold flex items-center gap-1.5">
-              <Bot className="w-3.5 h-3.5 text-amber-400" />
-              <span>Venky is speaking to your table...</span>
-            </div>
-          ) : isLoading ? (
-            <div className="px-3.5 py-1.5 rounded-full bg-slate-900 border border-slate-800 text-orange-400 text-xs font-semibold flex items-center gap-2">
-              <Sparkles className="w-3.5 h-3.5 animate-spin" />
-              <span>Venky is checking with the chef...</span>
-            </div>
-          ) : (
-            <p className="text-xs text-slate-400 font-medium max-w-xs">
-              "Venky, recommend something spicy" or "What's good for dinner?"
-            </p>
-          )}
-        </div>
+            {interimText && (
+              <div className="mt-2.5 px-3 py-2 bg-slate-900/95 border border-amber-400/40 rounded-xl text-left w-full shadow-2xl backdrop-blur-sm animate-fadeIn">
+                <div className="flex items-center justify-between text-[10px] font-black text-amber-400 uppercase tracking-wider mb-1">
+                  <span className="flex items-center gap-1.5">
+                    <NotebookPen className="w-3 h-3 text-amber-300" />
+                    <span>Writing in Order Pad</span>
+                  </span>
+                  <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-ping"></span>
+                </div>
+                <p className="text-xs text-white italic font-medium leading-relaxed">"{interimText}..."</p>
+              </div>
+            )}
+          </div>
+        ) : isSpeaking ? (
+          <div className="inline-flex items-center space-x-2 px-3.5 py-1 rounded-full bg-orange-500/20 border border-orange-400/40 text-amber-200 text-xs font-bold shadow-md">
+            <Volume2 className="w-3.5 h-3.5 text-amber-400 animate-pulse" />
+            <span>Venky is speaking...</span>
+          </div>
+        ) : (
+          <div className="inline-flex items-center space-x-1.5 px-3 py-1 rounded-full bg-slate-900/80 border border-slate-800 text-slate-300 text-xs font-medium">
+            <span>Tap Venky to order food or ask recommendations</span>
+          </div>
+        )}
+
+
       </div>
 
       {/* DYNAMIC DISH RECOMMENDATIONS: Appear seamlessly when Venky suggests items */}
@@ -274,11 +272,10 @@ export function VoiceAssistant({
 
                   <button
                     onClick={() => onAddToCart && onAddToCart(dish)}
-                    className={`py-1.5 px-3 rounded-lg text-xs font-bold shrink-0 transition flex items-center space-x-1 ${
-                      inCart
-                        ? 'bg-emerald-600 text-white'
-                        : 'bg-linear-to-r from-orange-600 to-amber-600 hover:from-orange-500 hover:to-amber-500 text-white shadow-sm'
-                    }`}
+                    className={`py-1.5 px-3 rounded-lg text-xs font-bold shrink-0 transition flex items-center space-x-1 ${inCart
+                      ? 'bg-emerald-600 text-white'
+                      : 'bg-linear-to-r from-orange-600 to-amber-600 hover:from-orange-500 hover:to-amber-500 text-white shadow-sm'
+                      }`}
                   >
                     {inCart ? (
                       <>

@@ -1,11 +1,14 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
+import { getNeuralTtsUrl } from '../services/api';
 
 export function useSpeech({ onTranscriptReady, languageCode = 'en' }) {
   const [isListening, setIsListening] = useState(false);
   const [isSpeaking, setIsSpeaking] = useState(false);
   const [speechSupported, setSpeechSupported] = useState(true);
   const [interimText, setInterimText] = useState('');
+  
   const recognitionRef = useRef(null);
+  const audioRef = useRef(null);
 
   // Initialize SpeechRecognition
   useEffect(() => {
@@ -72,48 +75,33 @@ export function useSpeech({ onTranscriptReady, languageCode = 'en' }) {
       if (recognitionRef.current) {
         recognitionRef.current.abort();
       }
+      if (audioRef.current) {
+        audioRef.current.pause();
+        audioRef.current = null;
+      }
     };
   }, [languageCode, onTranscriptReady]);
 
-  // Start listening function
-  const startListening = useCallback(() => {
-    if (!recognitionRef.current) {
-      alert('Speech recognition is not supported in this browser. You can type your request directly!');
-      return;
+  // Stop any active spoken audio
+  const stopSpeaking = useCallback(() => {
+    if (audioRef.current) {
+      audioRef.current.pause();
+      audioRef.current.currentTime = 0;
+      audioRef.current = null;
     }
-    // Stop any ongoing TTS before listening
     if (window.speechSynthesis) {
       window.speechSynthesis.cancel();
-      setIsSpeaking(false);
     }
-    try {
-      recognitionRef.current.start();
-    } catch (e) {
-      console.warn('Recognition start issue:', e);
-    }
+    setIsSpeaking(false);
   }, []);
 
-  // Stop listening function
-  const stopListening = useCallback(() => {
-    if (recognitionRef.current) {
-      recognitionRef.current.stop();
-    }
-    setIsListening(false);
-  }, []);
-
-  // Speak text using Browser TTS (SpeechSynthesis)
-  const speak = useCallback((text, langCode = languageCode) => {
+  // Fallback to browser SpeechSynthesis if offline
+  const speakFallback = useCallback((text, langCode) => {
     if (!window.speechSynthesis || !text) return;
-
-    window.speechSynthesis.cancel(); // Stop current speech
+    window.speechSynthesis.cancel();
 
     const utterance = new SpeechSynthesisUtterance(text);
-    const langMap = {
-      en: 'en-US',
-      hi: 'hi-IN',
-      es: 'es-ES',
-      fr: 'fr-FR',
-    };
+    const langMap = { en: 'en-US', hi: 'hi-IN', es: 'es-ES', fr: 'fr-FR' };
     utterance.lang = langMap[langCode] || 'en-US';
     utterance.rate = 1.0;
     utterance.pitch = 1.0;
@@ -123,13 +111,67 @@ export function useSpeech({ onTranscriptReady, languageCode = 'en' }) {
     utterance.onerror = () => setIsSpeaking(false);
 
     window.speechSynthesis.speak(utterance);
-  }, [languageCode]);
+  }, []);
 
-  const stopSpeaking = useCallback(() => {
-    if (window.speechSynthesis) {
-      window.speechSynthesis.cancel();
-      setIsSpeaking(false);
+  // Main speaking function: Streams Edge-TTS Neural Voice (Microsoft Azure Neural)
+  const speak = useCallback((text, langCode = languageCode) => {
+    if (!text || !text.trim()) return;
+
+    // Stop ongoing speech
+    stopSpeaking();
+
+    try {
+      const url = getNeuralTtsUrl(text.trim(), langCode);
+      const audio = new Audio(url);
+      audioRef.current = audio;
+
+      audio.onplay = () => setIsSpeaking(true);
+      audio.onended = () => {
+        setIsSpeaking(false);
+        audioRef.current = null;
+      };
+      audio.onerror = (e) => {
+        console.warn('Neural TTS stream error, falling back to browser voice:', e);
+        setIsSpeaking(false);
+        audioRef.current = null;
+        speakFallback(text, langCode);
+      };
+
+      const playPromise = audio.play();
+      if (playPromise !== undefined) {
+        playPromise.catch((err) => {
+          console.warn('Audio play restricted by browser policy, using fallback:', err);
+          speakFallback(text, langCode);
+        });
+      }
+    } catch (err) {
+      console.warn('Audio initialization error:', err);
+      speakFallback(text, langCode);
     }
+  }, [languageCode, stopSpeaking, speakFallback]);
+
+  // Start listening function
+  const startListening = useCallback(() => {
+    if (!recognitionRef.current) {
+      alert('Speech recognition is not supported in this browser. You can type your request directly!');
+      return;
+    }
+    // Stop ongoing TTS before listening
+    stopSpeaking();
+
+    try {
+      recognitionRef.current.start();
+    } catch (e) {
+      console.warn('Recognition start issue:', e);
+    }
+  }, [stopSpeaking]);
+
+  // Stop listening function
+  const stopListening = useCallback(() => {
+    if (recognitionRef.current) {
+      recognitionRef.current.stop();
+    }
+    setIsListening(false);
   }, []);
 
   return {
@@ -143,3 +185,5 @@ export function useSpeech({ onTranscriptReady, languageCode = 'en' }) {
     stopSpeaking,
   };
 }
+
+export default useSpeech;

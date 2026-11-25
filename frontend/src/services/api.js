@@ -1,4 +1,9 @@
-const API_BASE = 'http://localhost:8000/api';
+const API_HOST = typeof window !== 'undefined' && window.location.hostname ? window.location.hostname : 'localhost';
+const API_BASE = `http://${API_HOST}:8000/api`;
+
+export function getNeuralTtsUrl(text, language = 'en') {
+  return `${API_BASE}/chat/tts?text=${encodeURIComponent(text)}&language=${encodeURIComponent(language)}`;
+}
 
 // Public endpoints
 export async function getRestaurantInfo(restaurantId = 1) {
