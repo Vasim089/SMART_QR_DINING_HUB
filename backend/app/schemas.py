@@ -82,6 +82,30 @@ class MenuItemCreate(BaseModel):
     image_url: Optional[str] = None
     tags: List[str] = []
 
+class MenuItemCreate(BaseModel):
+    category_id: Optional[int] = None
+    category_name: Optional[str] = None
+    name: str
+    description: Optional[str] = None
+    price: float
+    ingredients: Optional[str] = None
+    image_url: Optional[str] = None
+    tags: List[str] = []
+
+class MenuItemUpdate(BaseModel):
+    category_id: Optional[int] = None
+    category_name: Optional[str] = None
+    name: Optional[str] = None
+    description: Optional[str] = None
+    price: Optional[float] = None
+    ingredients: Optional[str] = None
+    image_url: Optional[str] = None
+    tags: Optional[List[str]] = None
+
+class MenuCategoryCreate(BaseModel):
+    name: str
+    description: Optional[str] = None
+
 # Category
 class MenuCategorySchema(BaseModel):
     id: int

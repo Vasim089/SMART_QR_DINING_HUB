@@ -137,6 +137,14 @@ export async function addAdminTable(restaurantId = 1, tableNumber, token) {
   return res.json();
 }
 
+export async function getAdminProfile(token) {
+  const res = await fetch(`${API_BASE}/admin/me`, {
+    headers: { Authorization: `Bearer ${token}` }
+  });
+  if (!res.ok) throw new Error('Failed to fetch admin profile');
+  return res.json();
+}
+
 export async function getAdminAnalytics(restaurantId = 1, token) {
   const res = await fetch(`${API_BASE}/admin/restaurant/${restaurantId}/analytics`, {
     headers: { Authorization: `Bearer ${token}` }
@@ -150,5 +158,88 @@ export async function getAdminChatSessions(restaurantId = 1, token) {
     headers: { Authorization: `Bearer ${token}` }
   });
   if (!res.ok) throw new Error('Failed to fetch AI chat sessions');
+  return res.json();
+}
+
+export async function getAdminCategories(restaurantId = 1, token) {
+  const res = await fetch(`${API_BASE}/admin/restaurant/${restaurantId}/categories`, {
+    headers: { Authorization: `Bearer ${token}` }
+  });
+  if (!res.ok) throw new Error('Failed to fetch categories');
+  return res.json();
+}
+
+export async function createAdminCategory(restaurantId = 1, data, token) {
+  const res = await fetch(`${API_BASE}/admin/restaurant/${restaurantId}/categories`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${token}`
+    },
+    body: JSON.stringify(data)
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.detail || 'Failed to create category');
+  }
+  return res.json();
+}
+
+export async function deleteAdminCategory(categoryId, token) {
+  const res = await fetch(`${API_BASE}/admin/categories/${categoryId}`, {
+    method: 'DELETE',
+    headers: { Authorization: `Bearer ${token}` }
+  });
+  if (!res.ok) throw new Error('Failed to delete category');
+  return res.json();
+}
+
+export async function createAdminMenuItem(restaurantId = 1, itemData, token) {
+  const res = await fetch(`${API_BASE}/admin/restaurant/${restaurantId}/menu-items`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${token}`
+    },
+    body: JSON.stringify(itemData)
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.detail || 'Failed to add menu item');
+  }
+  return res.json();
+}
+
+export async function updateAdminMenuItem(menuItemId, itemData, token) {
+  const res = await fetch(`${API_BASE}/admin/menu-items/${menuItemId}`, {
+    method: 'PUT',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${token}`
+    },
+    body: JSON.stringify(itemData)
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.detail || 'Failed to update menu item');
+  }
+  return res.json();
+}
+
+export async function deleteAdminMenuItem(menuItemId, token) {
+  const res = await fetch(`${API_BASE}/admin/menu-items/${menuItemId}`, {
+    method: 'DELETE',
+    headers: { Authorization: `Bearer ${token}` }
+  });
+  if (!res.ok) throw new Error('Failed to delete menu item');
+  return res.json();
+}
+
+export async function deleteAdminTable(tableId, token) {
+  const res = await fetch(`${API_BASE}/admin/tables/${tableId}`, {
+    method: 'DELETE',
+    headers: { Authorization: `Bearer ${token}` }
+  });
+  if (!res.ok) throw new Error('Failed to delete table');
   return res.json();
 }

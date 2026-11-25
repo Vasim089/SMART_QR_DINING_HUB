@@ -20,7 +20,11 @@ import {
   Utensils,
   KeyRound,
   ShieldAlert,
-  ArrowRight
+  ArrowRight,
+  Trash2,
+  Search,
+  X,
+  Pencil
 } from 'lucide-react';
 import {
   ResponsiveContainer,
@@ -35,12 +39,18 @@ import {
 } from 'recharts';
 import {
   adminLogin,
+  getAdminProfile,
   getAdminAnalytics,
   getAdminDailyMenu,
   updateDailyMenuAvailability,
   getAdminTables,
   addAdminTable,
-  getAdminChatSessions
+  getAdminChatSessions,
+  getAdminCategories,
+  createAdminMenuItem,
+  updateAdminMenuItem,
+  deleteAdminMenuItem,
+  deleteAdminTable
 } from '../services/api';
 
 const COLORS = ['#ea580c', '#f59e0b', '#10b981', '#3b82f6', '#8b5cf6', '#ec4899'];
@@ -53,11 +63,27 @@ export function OwnerDashboard({ restaurantId = 1, onOpenGallery }) {
   
   // Dashboard state
   const [activeTab, setActiveTab] = useState('daily_menu'); // 'daily_menu', 'overview', 'tables', 'chats'
+  const [restaurantName, setRestaurantName] = useState('Bawarchi Indian Cuisine');
   const [analytics, setAnalytics] = useState(null);
   const [dailyMenu, setDailyMenu] = useState([]);
+  const [categories, setCategories] = useState([]);
   const [tables, setTables] = useState([]);
   const [chatSessions, setChatSessions] = useState([]);
   const [newTableNum, setNewTableNum] = useState('');
+  const [menuSearch, setMenuSearch] = useState('');
+  const [selectedCategoryFilter, setSelectedCategoryFilter] = useState('ALL');
+  const [showAddDishModal, setShowAddDishModal] = useState(false);
+  const [editingDishId, setEditingDishId] = useState(null);
+  const [newDish, setNewDish] = useState({
+    name: '',
+    category_id: '',
+    category_name: '',
+    price: '',
+    description: '',
+    ingredients: '',
+    image_url: '',
+    tags: ['Vegetarian']
+  });
   const [saveSuccessMsg, setSaveSuccessMsg] = useState('');
   const [loading, setLoading] = useState(false);
 
@@ -122,14 +148,20 @@ export function OwnerDashboard({ restaurantId = 1, onOpenGallery }) {
     if (!token) return;
     setLoading(true);
     try {
-      const [analyticsData, menuData, tablesData, chatsData] = await Promise.all([
+      const [profileData, analyticsData, menuData, catsData, tablesData, chatsData] = await Promise.all([
+        getAdminProfile(token),
         getAdminAnalytics(restaurantId, token),
         getAdminDailyMenu(restaurantId, token),
+        getAdminCategories(restaurantId, token),
         getAdminTables(restaurantId, token),
         getAdminChatSessions(restaurantId, token)
       ]);
+      if (profileData?.restaurant_name) {
+        setRestaurantName(profileData.restaurant_name);
+      }
       setAnalytics(analyticsData);
       setDailyMenu(menuData);
+      setCategories(catsData);
       setTables(tablesData);
       setChatSessions(chatsData);
     } catch (err) {
@@ -238,6 +270,114 @@ export function OwnerDashboard({ restaurantId = 1, onOpenGallery }) {
     }
   };
 
+  const handleDeleteTable = async (table) => {
+    if (!window.confirm(`Delete Table #${table.table_number}?`)) return;
+    try {
+      await deleteAdminTable(table.id, token);
+      setTables((prev) => prev.filter((t) => t.id !== table.id));
+      setSaveSuccessMsg(`Deleted Table #${table.table_number}`);
+      setTimeout(() => setSaveSuccessMsg(''), 2000);
+    } catch (err) {
+      alert(err.message);
+    }
+  };
+
+  const toggleNewDishTag = (tag) => {
+    setNewDish((prev) => ({
+      ...prev,
+      tags: prev.tags.includes(tag) ? prev.tags.filter((t) => t !== tag) : [...prev.tags, tag]
+    }));
+  };
+
+  const openAddDishModal = () => {
+    setEditingDishId(null);
+    setNewDish({
+      name: '',
+      category_id: '',
+      category_name: '',
+      price: '',
+      description: '',
+      ingredients: '',
+      image_url: '',
+      tags: ['Vegetarian']
+    });
+    setShowAddDishModal(true);
+  };
+
+  const openEditDishModal = (item) => {
+    setEditingDishId(item.menu_item_id);
+    setNewDish({
+      name: item.name || '',
+      category_id: item.category_id ? String(item.category_id) : '',
+      category_name: '',
+      price: item.base_price != null ? String(item.base_price) : '',
+      description: item.description || '',
+      ingredients: '',
+      image_url: item.image_url || '',
+      tags: item.tags || []
+    });
+    setShowAddDishModal(true);
+  };
+
+  const handleCreateDish = async (e) => {
+    e.preventDefault();
+    if (!newDish.name.trim() || !newDish.price) return;
+    const payload = {
+      name: newDish.name.trim(),
+      category_id: newDish.category_id ? parseInt(newDish.category_id, 10) : null,
+      category_name: !newDish.category_id && newDish.category_name.trim() ? newDish.category_name.trim() : null,
+      price: parseFloat(newDish.price),
+      description: newDish.description.trim() || null,
+      ingredients: newDish.ingredients.trim() || null,
+      image_url: newDish.image_url.trim() || null,
+      tags: newDish.tags
+    };
+    try {
+      if (editingDishId) {
+        await updateAdminMenuItem(editingDishId, payload, token);
+        setSaveSuccessMsg(`Updated "${payload.name}"!`);
+      } else {
+        await createAdminMenuItem(restaurantId, payload, token);
+        setSaveSuccessMsg('New dish added to menu!');
+      }
+      setShowAddDishModal(false);
+      setEditingDishId(null);
+      setNewDish({
+        name: '',
+        category_id: '',
+        category_name: '',
+        price: '',
+        description: '',
+        ingredients: '',
+        image_url: '',
+        tags: ['Vegetarian']
+      });
+      setTimeout(() => setSaveSuccessMsg(''), 2500);
+      loadDashboardData();
+    } catch (err) {
+      alert(err.message);
+    }
+  };
+
+  const handleDeleteDish = async (item) => {
+    if (!window.confirm(`Delete "${item.name}" from the menu?`)) return;
+    try {
+      await deleteAdminMenuItem(item.menu_item_id, token);
+      setDailyMenu((prev) => prev.filter((i) => i.menu_item_id !== item.menu_item_id));
+      setSaveSuccessMsg(`Deleted "${item.name}"`);
+      setTimeout(() => setSaveSuccessMsg(''), 2000);
+    } catch (err) {
+      alert(err.message);
+    }
+  };
+
+  const filteredMenu = dailyMenu.filter((item) => {
+    const matchesCat = selectedCategoryFilter === 'ALL' || item.category === selectedCategoryFilter;
+    const q = menuSearch.trim().toLowerCase();
+    const matchesSearch = !q || item.name.toLowerCase().includes(q) || (item.category || '').toLowerCase().includes(q);
+    return matchesCat && matchesSearch;
+  });
+
   // If not authenticated, show luxury dark login card
   if (!token) {
     return (
@@ -322,114 +462,179 @@ export function OwnerDashboard({ restaurantId = 1, onOpenGallery }) {
   }
 
   return (
-    <div className="max-w-6xl mx-auto px-4 py-6 space-y-6 pb-20 bg-slate-950 min-h-screen text-slate-100">
-      
-      {/* Top Admin Header Bar */}
-      <div className="bg-slate-900 border border-slate-800 p-5 rounded-3xl shadow-xl flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div>
-          <div className="flex items-center space-x-2">
-            <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse"></span>
-            <span className="text-xs uppercase font-extrabold text-orange-400 tracking-wider">Owner Control Center</span>
+    <div className="min-h-screen w-full bg-slate-950 text-slate-100 flex flex-col md:flex-row">
+
+      {/* LEFT DESKTOP / LAPTOP SIDEBAR */}
+      <aside className="w-full md:w-72 shrink-0 bg-slate-900 border-b md:border-b-0 md:border-r border-slate-800 flex flex-col justify-between p-5 md:sticky md:top-0 md:h-screen">
+        <div className="space-y-6">
+          {/* Restaurant Brand Header */}
+          <div className="flex items-center space-x-3 pb-4 border-b border-slate-800">
+            <div className="w-11 h-11 rounded-2xl bg-linear-to-tr from-orange-600 to-amber-500 text-white flex items-center justify-center shrink-0 shadow-lg shadow-orange-600/30">
+              <Utensils className="w-5 h-5" />
+            </div>
+            <div className="min-w-0">
+              <div className="flex items-center space-x-1.5">
+                <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+                <span className="text-[10px] uppercase font-extrabold text-orange-400 tracking-wider">Admin Portal</span>
+              </div>
+              <h2 className="text-sm font-black text-white truncate">{restaurantName}</h2>
+            </div>
           </div>
-          <h2 className="text-xl font-black text-white mt-0.5">The Royal Spice Bistro — Management</h2>
-          <p className="text-xs text-slate-400">Manage daily availability, view table QR codes, and analyze diner trends</p>
+
+          {/* Vertical Sidebar Navigation */}
+          <nav className="space-y-1.5">
+            <button
+              onClick={() => setActiveTab('daily_menu')}
+              className={`w-full flex items-center justify-between px-3.5 py-3 rounded-2xl text-xs transition ${
+                activeTab === 'daily_menu'
+                  ? 'bg-linear-to-r from-orange-600 to-amber-600 text-white font-black shadow-lg shadow-orange-600/25'
+                  : 'text-slate-300 hover:bg-slate-800/80 font-bold'
+              }`}
+            >
+              <span className="flex items-center space-x-2.5">
+                <CalendarCheck2 className="w-4 h-4" />
+                <span>Menu & Daily Stock</span>
+              </span>
+              <span className={`text-[10px] px-2 py-0.5 rounded-full ${
+                activeTab === 'daily_menu' ? 'bg-white/20 text-white' : 'bg-slate-800 text-slate-400'
+              }`}>
+                {dailyMenu.length}
+              </span>
+            </button>
+
+            <button
+              onClick={() => setActiveTab('tables')}
+              className={`w-full flex items-center justify-between px-3.5 py-3 rounded-2xl text-xs transition ${
+                activeTab === 'tables'
+                  ? 'bg-linear-to-r from-orange-600 to-amber-600 text-white font-black shadow-lg shadow-orange-600/25'
+                  : 'text-slate-300 hover:bg-slate-800/80 font-bold'
+              }`}
+            >
+              <span className="flex items-center space-x-2.5">
+                <QrCode className="w-4 h-4" />
+                <span>Table QR Codes</span>
+              </span>
+              <span className={`text-[10px] px-2 py-0.5 rounded-full ${
+                activeTab === 'tables' ? 'bg-white/20 text-white' : 'bg-slate-800 text-slate-400'
+              }`}>
+                {tables.length}
+              </span>
+            </button>
+
+            <button
+              onClick={() => setActiveTab('overview')}
+              className={`w-full flex items-center space-x-2.5 px-3.5 py-3 rounded-2xl text-xs transition ${
+                activeTab === 'overview'
+                  ? 'bg-linear-to-r from-orange-600 to-amber-600 text-white font-black shadow-lg shadow-orange-600/25'
+                  : 'text-slate-300 hover:bg-slate-800/80 font-bold'
+              }`}
+            >
+              <BarChart3 className="w-4 h-4" />
+              <span>Analytics & Reports</span>
+            </button>
+
+            <button
+              onClick={() => setActiveTab('chats')}
+              className={`w-full flex items-center space-x-2.5 px-3.5 py-3 rounded-2xl text-xs transition ${
+                activeTab === 'chats'
+                  ? 'bg-linear-to-r from-orange-600 to-amber-600 text-white font-black shadow-lg shadow-orange-600/25'
+                  : 'text-slate-300 hover:bg-slate-800/80 font-bold'
+              }`}
+            >
+              <MessageSquare className="w-4 h-4" />
+              <span>Customer AI Transcripts</span>
+            </button>
+          </nav>
         </div>
 
-        <div className="flex items-center space-x-2.5">
+        {/* Sidebar Bottom Controls */}
+        <div className="pt-4 mt-6 border-t border-slate-800 space-y-2">
+          <div className="px-2 pb-1 text-[11px] text-slate-400 truncate">
+            Signed in: <strong className="text-slate-200">{email}</strong>
+          </div>
           <button
             onClick={loadDashboardData}
             disabled={loading}
-            className="flex items-center space-x-1.5 px-3.5 py-2 rounded-xl text-xs font-bold bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 transition"
+            className="w-full flex items-center justify-center space-x-2 px-3.5 py-2.5 rounded-xl text-xs font-bold bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 transition"
           >
             <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} />
-            <span>Refresh</span>
+            <span>Refresh Data</span>
           </button>
 
           <button
             onClick={handleLogout}
-            className="flex items-center space-x-1.5 px-3.5 py-2 rounded-xl text-xs font-bold bg-rose-950/80 text-rose-300 border border-rose-800/80 hover:bg-rose-900 transition"
+            className="w-full flex items-center justify-center space-x-2 px-3.5 py-2.5 rounded-xl text-xs font-bold bg-rose-950/80 text-rose-300 border border-rose-800/80 hover:bg-rose-900 transition"
           >
             <LogOut className="w-3.5 h-3.5" />
             <span>Sign Out</span>
           </button>
         </div>
-      </div>
+      </aside>
 
-      {saveSuccessMsg && (
-        <div className="p-3 bg-emerald-950/90 border border-emerald-800 text-emerald-300 rounded-2xl text-xs font-bold flex items-center space-x-2 animate-fadeIn">
-          <CheckCircle2 className="w-4 h-4 text-emerald-400" />
-          <span>{saveSuccessMsg}</span>
-        </div>
-      )}
+      {/* RIGHT MAIN CONTENT AREA */}
+      <div className="flex-1 min-w-0 p-5 md:p-8 space-y-6 overflow-y-auto">
+        {saveSuccessMsg && (
+          <div className="p-3 bg-emerald-950/90 border border-emerald-800 text-emerald-300 rounded-2xl text-xs font-bold flex items-center space-x-2 animate-fadeIn">
+            <CheckCircle2 className="w-4 h-4 text-emerald-400" />
+            <span>{saveSuccessMsg}</span>
+          </div>
+        )}
 
-      {/* Modern High-Contrast Navigation Tabs (No plain white buttons!) */}
-      <div className="flex space-x-2.5 pb-2 overflow-x-auto no-scrollbar">
-        <button
-          onClick={() => setActiveTab('daily_menu')}
-          className={`flex items-center space-x-2 px-4 py-2.5 rounded-2xl text-xs transition whitespace-nowrap ${
-            activeTab === 'daily_menu'
-              ? 'bg-linear-to-r from-orange-600 to-amber-600 text-white font-black shadow-lg shadow-orange-600/30 ring-1 ring-orange-400/50'
-              : 'bg-slate-900 hover:bg-slate-800 text-slate-300 border border-slate-800 font-bold'
-          }`}
-        >
-          <CalendarCheck2 className="w-4 h-4" />
-          <span>Daily Menu Availability</span>
-        </button>
-
-        <button
-          onClick={() => setActiveTab('tables')}
-          className={`flex items-center space-x-2 px-4 py-2.5 rounded-2xl text-xs transition whitespace-nowrap ${
-            activeTab === 'tables'
-              ? 'bg-linear-to-r from-orange-600 to-amber-600 text-white font-black shadow-lg shadow-orange-600/30 ring-1 ring-orange-400/50'
-              : 'bg-slate-900 hover:bg-slate-800 text-slate-300 border border-slate-800 font-bold'
-          }`}
-        >
-          <QrCode className="w-4 h-4" />
-          <span>Table QR Codes ({tables.length})</span>
-        </button>
-
-        <button
-          onClick={() => setActiveTab('overview')}
-          className={`flex items-center space-x-2 px-4 py-2.5 rounded-2xl text-xs transition whitespace-nowrap ${
-            activeTab === 'overview'
-              ? 'bg-linear-to-r from-orange-600 to-amber-600 text-white font-black shadow-lg shadow-orange-600/30 ring-1 ring-orange-400/50'
-              : 'bg-slate-900 hover:bg-slate-800 text-slate-300 border border-slate-800 font-bold'
-          }`}
-        >
-          <BarChart3 className="w-4 h-4" />
-          <span>Analytics & Reports</span>
-        </button>
-
-        <button
-          onClick={() => setActiveTab('chats')}
-          className={`flex items-center space-x-2 px-4 py-2.5 rounded-2xl text-xs transition whitespace-nowrap ${
-            activeTab === 'chats'
-              ? 'bg-linear-to-r from-orange-600 to-amber-600 text-white font-black shadow-lg shadow-orange-600/30 ring-1 ring-orange-400/50'
-              : 'bg-slate-900 hover:bg-slate-800 text-slate-300 border border-slate-800 font-bold'
-          }`}
-        >
-          <MessageSquare className="w-4 h-4" />
-          <span>Customer AI Transcripts</span>
-        </button>
-      </div>
-
-      {/* TAB 1: DAILY MENU AVAILABILITY */}
+      {/* TAB 1: DAILY MENU AVAILABILITY + ADD/DELETE */}
       {activeTab === 'daily_menu' && (
         <div className="space-y-4">
-          <div className="bg-slate-900 border border-slate-800 p-5 rounded-3xl shadow-xl flex flex-col sm:flex-row items-center justify-between gap-3">
-            <div>
-              <h3 className="font-black text-base text-white">Daily Kitchen Stock & Chef Specials</h3>
-              <p className="text-xs text-slate-400">
-                Mark items as Available or Sold Out. Sold out items are automatically filtered from the AI Voice Waiter.
-              </p>
+          <div className="bg-slate-900 border border-slate-800 p-5 rounded-3xl shadow-xl space-y-4">
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+              <div>
+                <h3 className="font-black text-base text-white">Menu Management & Daily Kitchen Stock</h3>
+                <p className="text-xs text-slate-400">
+                  Add new dishes, delete items, or mark items Available / Sold Out. Changes sync live with Waiter Venky.
+                </p>
+              </div>
+              <div className="flex items-center gap-2.5">
+                <div className="text-xs bg-slate-950 px-3 py-2 rounded-xl border border-slate-800 text-slate-300 font-bold">
+                  Dishes: <span className="text-orange-400 font-black">{filteredMenu.length}</span> / {dailyMenu.length}
+                </div>
+                <button
+                  type="button"
+                  onClick={openAddDishModal}
+                  className="px-4 py-2 rounded-xl text-xs font-black bg-linear-to-r from-orange-600 to-amber-600 hover:from-orange-500 hover:to-amber-500 text-white shadow-lg shadow-orange-600/30 transition flex items-center space-x-1.5"
+                >
+                  <Plus className="w-4 h-4" />
+                  <span>Add New Dish</span>
+                </button>
+              </div>
             </div>
-            <div className="text-xs bg-slate-950 px-3 py-1.5 rounded-xl border border-slate-800 text-slate-300 font-bold">
-              Today's Menu Items: <span className="text-orange-400 font-black">{dailyMenu.length}</span>
+
+            {/* Search & Category Filter */}
+            <div className="flex flex-col sm:flex-row gap-2.5">
+              <div className="relative flex-1">
+                <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
+                <input
+                  type="text"
+                  placeholder="Search dish name or category..."
+                  value={menuSearch}
+                  onChange={(e) => setMenuSearch(e.target.value)}
+                  className="w-full pl-9 pr-3 py-2 text-xs bg-slate-950 border border-slate-800 text-white rounded-xl focus:ring-2 focus:ring-orange-500 outline-none"
+                />
+              </div>
+              <select
+                value={selectedCategoryFilter}
+                onChange={(e) => setSelectedCategoryFilter(e.target.value)}
+                className="px-3 py-2 text-xs bg-slate-950 border border-slate-800 text-slate-200 rounded-xl focus:ring-2 focus:ring-orange-500 outline-none font-bold"
+              >
+                <option value="ALL">All Categories ({categories.length})</option>
+                {categories.map((c) => (
+                  <option key={c.id} value={c.name}>
+                    {c.name} ({c.item_count})
+                  </option>
+                ))}
+              </select>
             </div>
           </div>
 
           <div className="bg-slate-900 border border-slate-800 rounded-3xl shadow-xl overflow-hidden divide-y divide-slate-800">
-            {dailyMenu.map((item) => (
+            {filteredMenu.map((item) => (
               <div
                 key={item.menu_item_id}
                 className="p-4 flex flex-col md:flex-row md:items-center justify-between gap-3 hover:bg-slate-800/50 transition"
@@ -514,10 +719,161 @@ export function OwnerDashboard({ restaurantId = 1, onOpenGallery }) {
                     </div>
                   )}
 
+                  {/* Edit Dish Button */}
+                  <button
+                    type="button"
+                    onClick={() => openEditDishModal(item)}
+                    className="p-2 rounded-xl bg-slate-950 hover:bg-slate-800 text-slate-400 hover:text-amber-400 border border-slate-800 hover:border-amber-500/40 transition"
+                    title={`Edit ${item.name}`}
+                  >
+                    <Pencil className="w-4 h-4" />
+                  </button>
+
+                  {/* Delete Dish Button */}
+                  <button
+                    type="button"
+                    onClick={() => handleDeleteDish(item)}
+                    className="p-2 rounded-xl bg-slate-950 hover:bg-rose-950 text-slate-400 hover:text-rose-400 border border-slate-800 hover:border-rose-700/60 transition"
+                    title={`Delete ${item.name}`}
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </button>
+
                 </div>
               </div>
             ))}
           </div>
+
+          {/* Add New Dish Modal */}
+          {showAddDishModal && (
+            <div className="fixed inset-0 z-50 bg-black/75 backdrop-blur-sm flex items-center justify-center p-4">
+              <div className="bg-slate-900 border border-slate-800 rounded-3xl max-w-lg w-full p-6 shadow-2xl space-y-4">
+                <div className="flex items-center justify-between">
+                  <h3 className="text-base font-black text-white flex items-center gap-2">
+                    {editingDishId ? (
+                      <Pencil className="w-4 h-4 text-amber-400" />
+                    ) : (
+                      <Plus className="w-4 h-4 text-orange-400" />
+                    )}
+                    <span>{editingDishId ? 'Edit Menu Dish' : 'Add New Menu Dish'}</span>
+                  </h3>
+                  <button
+                    type="button"
+                    onClick={() => setShowAddDishModal(false)}
+                    className="p-1.5 rounded-full bg-slate-800 text-slate-300 hover:text-white"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
+                </div>
+
+                <form onSubmit={handleCreateDish} className="space-y-3">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-[11px] font-bold text-slate-300 mb-1">Dish Name *</label>
+                      <input
+                        type="text"
+                        required
+                        placeholder="e.g. Paneer Tikka"
+                        value={newDish.name}
+                        onChange={(e) => setNewDish({ ...newDish, name: e.target.value })}
+                        className="w-full px-3 py-2 text-xs bg-slate-950 border border-slate-700 text-white rounded-xl outline-none focus:ring-2 focus:ring-orange-500"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-[11px] font-bold text-slate-300 mb-1">Price ($) *</label>
+                      <input
+                        type="number"
+                        step="0.01"
+                        min="0"
+                        required
+                        placeholder="13.51"
+                        value={newDish.price}
+                        onChange={(e) => setNewDish({ ...newDish, price: e.target.value })}
+                        className="w-full px-3 py-2 text-xs bg-slate-950 border border-slate-700 text-white rounded-xl outline-none focus:ring-2 focus:ring-orange-500"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-[11px] font-bold text-slate-300 mb-1">Existing Category</label>
+                      <select
+                        value={newDish.category_id}
+                        onChange={(e) => setNewDish({ ...newDish, category_id: e.target.value, category_name: '' })}
+                        className="w-full px-3 py-2 text-xs bg-slate-950 border border-slate-700 text-white rounded-xl outline-none focus:ring-2 focus:ring-orange-500"
+                      >
+                        <option value="">-- Or type new category --</option>
+                        {categories.map((c) => (
+                          <option key={c.id} value={c.id}>{c.name}</option>
+                        ))}
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block text-[11px] font-bold text-slate-300 mb-1">New Category Name</label>
+                      <input
+                        type="text"
+                        disabled={!!newDish.category_id}
+                        placeholder="e.g. Chef Specials"
+                        value={newDish.category_name}
+                        onChange={(e) => setNewDish({ ...newDish, category_name: e.target.value })}
+                        className="w-full px-3 py-2 text-xs bg-slate-950 border border-slate-700 text-white rounded-xl outline-none focus:ring-2 focus:ring-orange-500 disabled:opacity-40"
+                      />
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-[11px] font-bold text-slate-300 mb-1">Description</label>
+                    <textarea
+                      rows={2}
+                      placeholder="Short appetizing description for diners & Waiter Venky..."
+                      value={newDish.description}
+                      onChange={(e) => setNewDish({ ...newDish, description: e.target.value })}
+                      className="w-full px-3 py-2 text-xs bg-slate-950 border border-slate-700 text-white rounded-xl outline-none focus:ring-2 focus:ring-orange-500"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-[11px] font-bold text-slate-300 mb-1.5">Dietary & Spice Tags</label>
+                    <div className="flex flex-wrap gap-1.5">
+                      {['Vegetarian', 'Non-Vegetarian', 'Spicy', 'Mild', 'Seafood', 'Gluten-Free', 'Jain'].map((tag) => {
+                        const active = newDish.tags.includes(tag);
+                        return (
+                          <button
+                            type="button"
+                            key={tag}
+                            onClick={() => toggleNewDishTag(tag)}
+                            className={`px-2.5 py-1 rounded-full text-[11px] font-bold border transition ${
+                              active
+                                ? 'bg-orange-600 text-white border-orange-400'
+                                : 'bg-slate-950 text-slate-400 border-slate-800 hover:text-white'
+                            }`}
+                          >
+                            {tag}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+
+                  <div className="flex justify-end gap-2 pt-2">
+                    <button
+                      type="button"
+                      onClick={() => setShowAddDishModal(false)}
+                      className="px-4 py-2 rounded-xl text-xs font-bold bg-slate-800 text-slate-300 hover:text-white"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      type="submit"
+                      className="px-5 py-2 rounded-xl text-xs font-black bg-linear-to-r from-orange-600 to-amber-600 text-white shadow-lg shadow-orange-600/30"
+                    >
+                      {editingDishId ? 'Update Dish' : 'Save Dish to DB'}
+                    </button>
+                  </div>
+                </form>
+              </div>
+            </div>
+          )}
         </div>
       )}
 
@@ -572,9 +928,19 @@ export function OwnerDashboard({ restaurantId = 1, onOpenGallery }) {
               >
                 <div className="w-full flex items-center justify-between text-xs mb-2.5">
                   <span className="font-black text-white text-sm">Table #{t.table_number}</span>
-                  <span className="text-[10px] bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 font-bold px-2 py-0.5 rounded-full">
-                    Active
-                  </span>
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-[10px] bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 font-bold px-2 py-0.5 rounded-full">
+                      Active
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => handleDeleteTable(t)}
+                      className="p-1 rounded-lg bg-slate-950 hover:bg-rose-950 text-slate-400 hover:text-rose-400 border border-slate-800 transition"
+                      title={`Delete Table #${t.table_number}`}
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
                 </div>
 
                 {/* Scannable High-Res QR Image */}
@@ -726,7 +1092,7 @@ export function OwnerDashboard({ restaurantId = 1, onOpenGallery }) {
           )}
         </div>
       )}
-
+      </div>
     </div>
   );
 }

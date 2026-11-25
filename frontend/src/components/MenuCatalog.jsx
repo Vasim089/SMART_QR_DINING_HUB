@@ -7,13 +7,29 @@ import {
   Plus,
   Minus,
   CheckCircle2,
-  AlertCircle
+  AlertCircle,
+  SlidersHorizontal,
+  X,
+  ChevronDown,
+  UtensilsCrossed
 } from 'lucide-react';
+
+// Format ALL-CAPS DB category names nicely for mobile pills
+const formatCatName = (name) => {
+  if (!name) return '';
+  return name
+    .toLowerCase()
+    .replace(/(^|\s|[-/])([a-z])/g, (m, p1, p2) => p1 + p2.toUpperCase())
+    .replace(/\bAnd\b/g, '&')
+    .replace(/\bVeg\b/g, 'Veg');
+};
 
 export function MenuCatalog({ categories, onAddToCart, cartItems }) {
   const [selectedCategory, setSelectedCategory] = useState('all');
   const [searchQuery, setSearchQuery] = useState('');
-  const [activeFilter, setActiveFilter] = useState('all'); // all, veg, jain, spicy, special, under14
+  const [activeFilter, setActiveFilter] = useState('all'); // all, veg, nonveg, jain, spicy, special, under14
+  const [isFilterOpen, setIsFilterOpen] = useState(false);
+  const [isCategoryGridOpen, setIsCategoryGridOpen] = useState(false);
 
   // Flatten and filter items
   const filteredCategories = useMemo(() => {
@@ -40,6 +56,7 @@ export function MenuCatalog({ categories, onAddToCart, cartItems }) {
           const isSpicy = tagNames.some((t) => t.includes('spic') || t.includes('hot'));
 
           if (activeFilter === 'veg' && !isVeg) return false;
+          if (activeFilter === 'nonveg' && isVeg) return false;
           if (activeFilter === 'jain' && !isJain) return false;
           if (activeFilter === 'spicy' && !isSpicy) return false;
           if (activeFilter === 'special' && !item.is_today_special) return false;
@@ -58,74 +75,234 @@ export function MenuCatalog({ categories, onAddToCart, cartItems }) {
       .filter(Boolean);
   }, [categories, selectedCategory, searchQuery, activeFilter]);
 
+  const totalMatchingItems = useMemo(
+    () => filteredCategories.reduce((sum, c) => sum + c.items.length, 0),
+    [filteredCategories]
+  );
+
   const filterButtons = [
-    { id: 'all', label: 'All Items' },
-    { id: 'veg', label: '🌱 Pure Veg' },
-    { id: 'special', label: '⭐ Today\'s Special' },
-    { id: 'under14', label: '💰 Under $14' },
-    { id: 'spicy', label: '🌶️ Spicy' },
-    { id: 'jain', label: '✨ Jain' },
+    { id: 'all', label: 'All Items', icon: '🍽️' },
+    { id: 'veg', label: 'Pure Veg', icon: '🌱' },
+    { id: 'nonveg', label: 'Non-Veg', icon: '🍗' },
+    { id: 'spicy', label: 'Spicy', icon: '🌶️' },
+    { id: 'special', label: "Today's Special", icon: '⭐' },
+    { id: 'under14', label: 'Under $14', icon: '💰' },
+    { id: 'jain', label: 'Jain', icon: '✨' },
   ];
+
+  const activeFilterObj = filterButtons.find((f) => f.id === activeFilter);
+  const selectedCatObj = categories.find((c) => c.id === selectedCategory);
 
   return (
     <div className="space-y-3 pb-8">
-      
-      {/* Mobile Search & Filter Box */}
-      <div className="bg-slate-900/90 p-3 rounded-2xl border border-slate-800 space-y-2.5">
-        <div className="relative">
-          <Search className="w-4 h-4 absolute left-3 top-3 text-slate-400" />
-          <input
-            type="text"
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="Search dishes, curries, drinks..."
-            className="w-full pl-9 pr-3 py-2 text-xs bg-slate-800/90 text-white placeholder-slate-400 border border-slate-700 rounded-xl focus:outline-hidden focus:ring-2 focus:ring-orange-500 transition"
-          />
+
+      {/* Sleek Sticky Search & Filter Bar (Transparent Glass, No Black BG) */}
+      <div className="sticky top-0 z-20 bg-transparent backdrop-blur-xl pt-1 pb-2 space-y-2">
+        <div className="flex items-center gap-2">
+          {/* Search Input */}
+          <div className="relative flex-1">
+            <Search className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-slate-300" />
+            <input
+              type="text"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="Search biryani, dosa, paneer..."
+              className="w-full pl-8 pr-7 py-2 text-xs bg-white/10 text-white placeholder-slate-300/70 border border-white/15 rounded-xl focus:outline-hidden focus:ring-1 focus:ring-amber-400/70 transition"
+            />
+            {searchQuery && (
+              <button
+                onClick={() => setSearchQuery('')}
+                className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-300 hover:text-white"
+              >
+                <X className="w-3.5 h-3.5" />
+              </button>
+            )}
+          </div>
+
+          {/* Dietary / Price Filter Drawer Toggle */}
+          <button
+            onClick={() => {
+              setIsFilterOpen((v) => !v);
+              setIsCategoryGridOpen(false);
+            }}
+            className={`relative px-3 py-2 rounded-xl text-xs font-bold border flex items-center gap-1.5 transition shrink-0 ${
+              isFilterOpen || activeFilter !== 'all'
+                ? 'bg-amber-500/20 text-amber-300 border-amber-400/50'
+                : 'bg-white/10 text-slate-200 border-white/15 hover:bg-white/15'
+            }`}
+          >
+            <SlidersHorizontal className="w-3.5 h-3.5" />
+            <span>Filter</span>
+            {activeFilter !== 'all' && (
+              <span className="w-1.5 h-1.5 rounded-full bg-amber-400"></span>
+            )}
+          </button>
+
+          {/* All Categories Grid Toggle */}
+          <button
+            onClick={() => {
+              setIsCategoryGridOpen((v) => !v);
+              setIsFilterOpen(false);
+            }}
+            className={`px-2.5 py-2 rounded-xl text-xs font-bold border flex items-center gap-1 transition shrink-0 ${
+              isCategoryGridOpen || selectedCategory !== 'all'
+                ? 'bg-orange-500/20 text-orange-300 border-orange-400/50'
+                : 'bg-white/10 text-slate-200 border-white/15 hover:bg-white/15'
+            }`}
+            title="Browse Categories"
+          >
+            <UtensilsCrossed className="w-3.5 h-3.5" />
+            <ChevronDown className={`w-3 h-3 transition-transform ${isCategoryGridOpen ? 'rotate-180' : ''}`} />
+          </button>
         </div>
 
-        {/* Dietary Filters Chips */}
+        {/* Expandable Dietary & Price Filter Panel */}
+        {isFilterOpen && (
+          <div className="bg-slate-800/75 backdrop-blur-2xl border border-white/15 rounded-2xl p-2.5 shadow-xl">
+            <div className="flex items-center justify-between px-1 mb-2">
+              <span className="text-[10px] font-black uppercase tracking-wider text-slate-300">
+                Dietary & Quick Filters
+              </span>
+              {activeFilter !== 'all' && (
+                <button
+                  onClick={() => setActiveFilter('all')}
+                  className="text-[10px] font-bold text-amber-300 hover:underline"
+                >
+                  Reset
+                </button>
+              )}
+            </div>
+            <div className="grid grid-cols-3 gap-1.5">
+              {filterButtons.map((btn) => {
+                const active = activeFilter === btn.id;
+                return (
+                  <button
+                    key={btn.id}
+                    onClick={() => {
+                      setActiveFilter(btn.id);
+                      setIsFilterOpen(false);
+                    }}
+                    className={`flex items-center justify-center gap-1 px-2 py-2 rounded-xl text-[11px] font-bold border transition ${
+                      active
+                        ? 'bg-linear-to-r from-orange-500 to-amber-500 text-white border-amber-300 shadow-md'
+                        : 'bg-white/10 text-slate-200 border-white/10 hover:bg-white/15'
+                    }`}
+                  >
+                    <span>{btn.icon}</span>
+                    <span className="truncate">{btn.label}</span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
+        {/* Expandable Category Grid Picker */}
+        {isCategoryGridOpen && (
+          <div className="bg-slate-800/75 backdrop-blur-2xl border border-white/15 rounded-2xl p-2.5 shadow-xl max-h-60 overflow-y-auto no-scrollbar">
+            <div className="flex items-center justify-between px-1 mb-2">
+              <span className="text-[10px] font-black uppercase tracking-wider text-slate-300">
+                Jump to Category ({categories.length})
+              </span>
+              {selectedCategory !== 'all' && (
+                <button
+                  onClick={() => {
+                    setSelectedCategory('all');
+                    setIsCategoryGridOpen(false);
+                  }}
+                  className="text-[10px] font-bold text-amber-300 hover:underline"
+                >
+                  Show All
+                </button>
+              )}
+            </div>
+            <div className="grid grid-cols-2 gap-1.5">
+              <button
+                onClick={() => {
+                  setSelectedCategory('all');
+                  setIsCategoryGridOpen(false);
+                }}
+                className={`px-2.5 py-2 rounded-xl text-[11px] font-bold text-left border transition ${
+                  selectedCategory === 'all'
+                    ? 'bg-linear-to-r from-orange-500 to-amber-500 text-white border-amber-300'
+                    : 'bg-white/10 text-slate-200 border-white/10 hover:bg-white/15'
+                }`}
+              >
+                All Categories
+              </button>
+              {categories.map((c) => (
+                <button
+                  key={c.id}
+                  onClick={() => {
+                    setSelectedCategory(c.id);
+                    setIsCategoryGridOpen(false);
+                  }}
+                  className={`px-2.5 py-2 rounded-xl text-[11px] font-bold text-left border flex items-center justify-between gap-1 transition ${
+                    selectedCategory === c.id
+                      ? 'bg-linear-to-r from-orange-500 to-amber-500 text-white border-amber-300'
+                      : 'bg-white/10 text-slate-200 border-white/10 hover:bg-white/15'
+                  }`}
+                >
+                  <span className="truncate">{formatCatName(c.name)}</span>
+                  <span className="text-[9px] opacity-75 shrink-0">{c.items.length}</span>
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Clean Horizontal Category Pill Strip */}
         <div className="flex items-center space-x-1.5 overflow-x-auto no-scrollbar pb-0.5">
-          {filterButtons.map((btn) => (
+          <button
+            onClick={() => setSelectedCategory('all')}
+            className={`text-[11px] font-bold px-3 py-1.5 rounded-full whitespace-nowrap border transition ${
+              selectedCategory === 'all'
+                ? 'bg-linear-to-r from-orange-500 to-amber-500 text-white border-amber-300 shadow-sm'
+                : 'bg-white/10 text-slate-200 border-white/15 hover:bg-white/15'
+            }`}
+          >
+            All
+          </button>
+          {categories.map((c) => (
             <button
-              key={btn.id}
-              onClick={() => setActiveFilter(btn.id)}
-              className={`text-[11px] font-bold px-3 py-1.5 rounded-xl whitespace-nowrap transition ${
-                activeFilter === btn.id
-                  ? 'bg-orange-600 text-white shadow-xs'
-                  : 'bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700/60'
+              key={c.id}
+              onClick={() => setSelectedCategory(c.id)}
+              className={`text-[11px] font-bold px-3 py-1.5 rounded-full whitespace-nowrap border transition flex items-center gap-1.5 ${
+                selectedCategory === c.id
+                  ? 'bg-linear-to-r from-orange-500 to-amber-500 text-white border-amber-300 shadow-sm'
+                  : 'bg-white/10 text-slate-200 border-white/15 hover:bg-white/15'
               }`}
             >
-              {btn.label}
+              <span>{formatCatName(c.name)}</span>
+              <span className={`text-[9px] px-1.5 py-0.2 rounded-full ${
+                selectedCategory === c.id ? 'bg-white/25 text-white' : 'bg-white/10 text-slate-300'
+              }`}>
+                {c.items.length}
+              </span>
             </button>
           ))}
         </div>
-      </div>
 
-      {/* Swipeable Category Tabs */}
-      <div className="flex items-center space-x-1.5 overflow-x-auto no-scrollbar py-0.5">
-        <button
-          onClick={() => setSelectedCategory('all')}
-          className={`text-xs font-bold px-3 py-1.5 rounded-xl whitespace-nowrap transition ${
-            selectedCategory === 'all'
-              ? 'bg-orange-600 text-white shadow-sm'
-              : 'bg-slate-800 text-slate-300 hover:bg-slate-700 border border-slate-700/60'
-          }`}
-        >
-          All
-        </button>
-        {categories.map((c) => (
-          <button
-            key={c.id}
-            onClick={() => setSelectedCategory(c.id)}
-            className={`text-xs font-bold px-3 py-1.5 rounded-xl whitespace-nowrap transition ${
-              selectedCategory === c.id
-                ? 'bg-orange-600 text-white shadow-sm'
-                : 'bg-slate-800 text-slate-300 hover:bg-slate-700 border border-slate-700/60'
-            }`}
-          >
-            {c.name}
-          </button>
-        ))}
+        {/* Active Filter Summary Chip */}
+        {(activeFilter !== 'all' || selectedCategory !== 'all' || searchQuery) && (
+          <div className="flex items-center justify-between px-1 text-[11px] text-slate-400">
+            <span>
+              Showing <strong className="text-amber-300">{totalMatchingItems}</strong> dishes
+              {activeFilter !== 'all' && activeFilterObj ? ` • ${activeFilterObj.icon} ${activeFilterObj.label}` : ''}
+              {selectedCategory !== 'all' && selectedCatObj ? ` • ${formatCatName(selectedCatObj.name)}` : ''}
+            </span>
+            <button
+              onClick={() => {
+                setSearchQuery('');
+                setActiveFilter('all');
+                setSelectedCategory('all');
+              }}
+              className="text-amber-400 font-bold hover:underline"
+            >
+              Clear All
+            </button>
+          </div>
+        )}
       </div>
 
       {/* Mobile Dish Listings */}

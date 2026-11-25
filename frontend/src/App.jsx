@@ -54,7 +54,7 @@ export function App() {
 
             {/* Navbar (Customer: Only Brand, Table Pill, AI Indicator, Language) */}
             <Navbar
-              restaurant={{ name: "The Royal Spice Bistro" }}
+              restaurant={{ name: "Bawarchi Indian Cuisine" }}
               tableNumber={tableNumber}
               currentLanguage={currentLanguage}
               onOpenLanguageModal={() => setIsLanguageModalOpen(true)}
@@ -81,17 +81,9 @@ export function App() {
 
         </div>
       ) : (
-        /* 3. Owner / Admin Dashboard View (Where all QR codes, Daily Menu & Analytics live) */
-        <div className="w-full min-h-screen bg-slate-50 flex flex-col">
-          <Navbar
-            restaurant={{ name: "The Royal Spice Bistro" }}
-            tableNumber={tableNumber}
-            currentLanguage={currentLanguage}
-            onOpenLanguageModal={() => setIsLanguageModalOpen(true)}
-            mode={mode}
-            setMode={setMode}
-          />
-          <main className="flex-1">
+        /* 3. Owner / Admin Desktop Dashboard View (Sidebar + Content, Full Laptop/Desktop Layout) */
+        <div className="w-full min-h-screen bg-slate-950 flex flex-col">
+          <main className="flex-1 flex flex-col">
             <OwnerDashboard
               restaurantId={restaurantId}
               onOpenGallery={() => setMode('qrcodes')}

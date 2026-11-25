@@ -119,6 +119,207 @@ def get_admin_profile(current_admin: models.AdminUser = Depends(get_current_admi
     }
 
 
+@router.get("/restaurant/{restaurant_id}/categories")
+def get_admin_categories(
+    restaurant_id: int,
+    current_admin: models.AdminUser = Depends(get_current_admin),
+    db: Session = Depends(get_db)
+):
+    cats = (
+        db.query(models.MenuCategory)
+        .filter(models.MenuCategory.restaurant_id == restaurant_id)
+        .order_by(models.MenuCategory.id.asc())
+        .all()
+    )
+    return [{"id": c.id, "name": c.name, "description": c.description, "item_count": len(c.items)} for c in cats]
+
+
+@router.post("/restaurant/{restaurant_id}/categories")
+def create_admin_category(
+    restaurant_id: int,
+    payload: schemas.MenuCategoryCreate,
+    current_admin: models.AdminUser = Depends(get_current_admin),
+    db: Session = Depends(get_db)
+):
+    existing = (
+        db.query(models.MenuCategory)
+        .filter(models.MenuCategory.restaurant_id == restaurant_id, models.MenuCategory.name.ilike(payload.name.strip()))
+        .first()
+    )
+    if existing:
+        raise HTTPException(status_code=400, detail="Category already exists")
+    cat = models.MenuCategory(
+        restaurant_id=restaurant_id,
+        name=payload.name.strip(),
+        description=payload.description
+    )
+    db.add(cat)
+    db.commit()
+    db.refresh(cat)
+    return {"id": cat.id, "name": cat.name, "description": cat.description}
+
+
+@router.delete("/categories/{category_id}")
+def delete_admin_category(
+    category_id: int,
+    current_admin: models.AdminUser = Depends(get_current_admin),
+    db: Session = Depends(get_db)
+):
+    cat = db.query(models.MenuCategory).filter(models.MenuCategory.id == category_id).first()
+    if not cat:
+        raise HTTPException(status_code=404, detail="Category not found")
+    db.delete(cat)
+    db.commit()
+    return {"status": "success", "message": f"Category '{cat.name}' deleted"}
+
+
+@router.post("/restaurant/{restaurant_id}/menu-items")
+def create_admin_menu_item(
+    restaurant_id: int,
+    payload: schemas.MenuItemCreate,
+    current_admin: models.AdminUser = Depends(get_current_admin),
+    db: Session = Depends(get_db)
+):
+    category_id = payload.category_id
+    if not category_id and payload.category_name:
+        cat_name = payload.category_name.strip()
+        existing_cat = (
+            db.query(models.MenuCategory)
+            .filter(models.MenuCategory.restaurant_id == restaurant_id, models.MenuCategory.name.ilike(cat_name))
+            .first()
+        )
+        if existing_cat:
+            category_id = existing_cat.id
+        else:
+            new_cat = models.MenuCategory(restaurant_id=restaurant_id, name=cat_name)
+            db.add(new_cat)
+            db.flush()
+            category_id = new_cat.id
+
+    if not category_id:
+        raise HTTPException(status_code=400, detail="Please select or enter a category")
+
+    item = models.MenuItem(
+        restaurant_id=restaurant_id,
+        category_id=category_id,
+        name=payload.name.strip(),
+        description=payload.description.strip() if payload.description else None,
+        price=float(payload.price),
+        ingredients=payload.ingredients.strip() if payload.ingredients else None,
+        image_url=payload.image_url.strip() if payload.image_url else None,
+        is_active=True
+    )
+    db.add(item)
+    db.flush()
+
+    for tag_name in payload.tags:
+        clean_tag = tag_name.strip()
+        if not clean_tag:
+            continue
+        t_lower = clean_tag.lower()
+        t_type = "spice_level" if t_lower in ("spicy", "mild", "medium") else "allergen" if "gluten" in t_lower or "dairy" in t_lower or "nut" in t_lower else "dietary"
+        db.add(models.MenuItemTag(menu_item_id=item.id, tag_name=clean_tag, tag_type=t_type))
+
+    db.commit()
+    db.refresh(item)
+    return {
+        "status": "success",
+        "menu_item_id": item.id,
+        "name": item.name,
+        "price": item.price,
+        "category_id": item.category_id
+    }
+
+
+@router.put("/menu-items/{menu_item_id}")
+def update_admin_menu_item(
+    menu_item_id: int,
+    payload: schemas.MenuItemUpdate,
+    current_admin: models.AdminUser = Depends(get_current_admin),
+    db: Session = Depends(get_db)
+):
+    item = db.query(models.MenuItem).filter(models.MenuItem.id == menu_item_id).first()
+    if not item:
+        raise HTTPException(status_code=404, detail="Menu item not found")
+
+    if payload.category_id:
+        item.category_id = payload.category_id
+    elif payload.category_name:
+        cat_name = payload.category_name.strip()
+        existing_cat = (
+            db.query(models.MenuCategory)
+            .filter(models.MenuCategory.restaurant_id == item.restaurant_id, models.MenuCategory.name.ilike(cat_name))
+            .first()
+        )
+        if existing_cat:
+            item.category_id = existing_cat.id
+        else:
+            new_cat = models.MenuCategory(restaurant_id=item.restaurant_id, name=cat_name)
+            db.add(new_cat)
+            db.flush()
+            item.category_id = new_cat.id
+
+    if payload.name is not None:
+        item.name = payload.name.strip()
+    if payload.description is not None:
+        item.description = payload.description.strip() or None
+    if payload.price is not None:
+        item.price = float(payload.price)
+    if payload.ingredients is not None:
+        item.ingredients = payload.ingredients.strip() or None
+    if payload.image_url is not None:
+        item.image_url = payload.image_url.strip() or None
+
+    if payload.tags is not None:
+        db.query(models.MenuItemTag).filter(models.MenuItemTag.menu_item_id == item.id).delete()
+        for tag_name in payload.tags:
+            clean_tag = tag_name.strip()
+            if not clean_tag:
+                continue
+            t_lower = clean_tag.lower()
+            t_type = "spice_level" if t_lower in ("spicy", "mild", "medium") else "allergen" if "gluten" in t_lower or "dairy" in t_lower or "nut" in t_lower else "dietary"
+            db.add(models.MenuItemTag(menu_item_id=item.id, tag_name=clean_tag, tag_type=t_type))
+
+    db.commit()
+    db.refresh(item)
+    return {
+        "status": "success",
+        "menu_item_id": item.id,
+        "name": item.name,
+        "price": item.price,
+        "category_id": item.category_id
+    }
+
+
+@router.delete("/menu-items/{menu_item_id}")
+def delete_admin_menu_item(
+    menu_item_id: int,
+    current_admin: models.AdminUser = Depends(get_current_admin),
+    db: Session = Depends(get_db)
+):
+    item = db.query(models.MenuItem).filter(models.MenuItem.id == menu_item_id).first()
+    if not item:
+        raise HTTPException(status_code=404, detail="Menu item not found")
+    name = item.name
+    db.delete(item)
+    db.commit()
+    return {"status": "success", "message": f"Deleted '{name}'"}
+
+
+@router.delete("/tables/{table_id}")
+def delete_admin_table(
+    table_id: int,
+    current_admin: models.AdminUser = Depends(get_current_admin),
+    db: Session = Depends(get_db)
+):
+    tbl = db.query(models.RestaurantTable).filter(models.RestaurantTable.id == table_id).first()
+    if not tbl:
+        raise HTTPException(status_code=404, detail="Table not found")
+    db.delete(tbl)
+    db.commit()
+    return {"status": "success", "message": f"Table {tbl.table_number} deleted"}
+
+
 @router.get("/restaurant/{restaurant_id}/daily-menu")
 def get_daily_menu_management(
     restaurant_id: int,
@@ -147,6 +348,8 @@ def get_daily_menu_management(
         result.append({
             "menu_item_id": item.id,
             "name": item.name,
+            "description": item.description,
+            "category_id": item.category_id,
             "category": item.category.name if item.category else "",
             "base_price": item.price,
             "is_available": avail.is_available if avail else True,
