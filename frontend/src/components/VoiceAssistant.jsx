@@ -43,7 +43,8 @@ export function VoiceAssistant({
     stopListening,
     speak,
     stopSpeaking,
-    getAudioLevel
+    getAudioLevel,
+    getSpeechMetrics
   } = useSpeech({
     languageCode,
     onTranscriptReady: (transcript) => {
@@ -181,6 +182,7 @@ export function VoiceAssistant({
             isListening={isListening}
             isSpeaking={isSpeaking}
             getAudioLevel={getAudioLevel}
+            getSpeechMetrics={getSpeechMetrics}
             onClick={handleOrbClick}
           />
         </div>

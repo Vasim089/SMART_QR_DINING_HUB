@@ -120,7 +120,6 @@ export function useSpeech({ onTranscriptReady, languageCode = 'en' }) {
   const getAudioLevel = useCallback(() => {
     if (!analyserRef.current || !dataArrayRef.current) return 0;
     analyserRef.current.getByteFrequencyData(dataArrayRef.current);
-    // Focus on human vocal frequencies (lower-mid bins)
     const bins = dataArrayRef.current;
     let sum = 0;
     const count = Math.min(24, bins.length);
@@ -129,6 +128,22 @@ export function useSpeech({ onTranscriptReady, languageCode = 'en' }) {
     }
     const avg = sum / (count - 1 || 1);
     return Math.min(1, Math.max(0, (avg - 15) / 110));
+  }, []);
+
+  // Read vocal formant metrics { open, spread } for natural vowel/consonant lip shapes
+  const getSpeechMetrics = useCallback(() => {
+    if (!analyserRef.current || !dataArrayRef.current) return { open: 0, spread: 0 };
+    analyserRef.current.getByteFrequencyData(dataArrayRef.current);
+    const bins = dataArrayRef.current;
+    let lowSum = 0;
+    let highSum = 0;
+    const lowEnd = Math.min(10, bins.length);
+    const highEnd = Math.min(28, bins.length);
+    for (let i = 1; i < lowEnd; i++) lowSum += bins[i];
+    for (let i = lowEnd; i < highEnd; i++) highSum += bins[i];
+    const open = Math.min(1, Math.max(0, (lowSum / Math.max(1, lowEnd - 1) - 18) / 115));
+    const spread = Math.min(1, Math.max(0, (highSum / Math.max(1, highEnd - lowEnd) - 12) / 95));
+    return { open, spread };
   }, []);
 
   // Main speaking function: Streams Edge-TTS Neural Voice (Microsoft Azure Neural)
@@ -231,6 +246,7 @@ export function useSpeech({ onTranscriptReady, languageCode = 'en' }) {
     speak,
     stopSpeaking,
     getAudioLevel,
+    getSpeechMetrics,
   };
 }
 
