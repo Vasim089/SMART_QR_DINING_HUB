@@ -42,7 +42,8 @@ export function VoiceAssistant({
     startListening,
     stopListening,
     speak,
-    stopSpeaking
+    stopSpeaking,
+    getAudioLevel
   } = useSpeech({
     languageCode,
     onTranscriptReady: (transcript) => {
@@ -170,62 +171,33 @@ export function VoiceAssistant({
         </button>
       </div>
 
-      {/* HERO VOICE STAGE: Realistic Waiter Venky Avatar & Interaction */}
-      <div className="my-auto py-6 flex flex-col items-center justify-center text-center select-none relative">
+      {/* HERO VOICE STAGE: Direct Front Portrait of Waiter Venky */}
+      <div className="my-auto py-3 flex flex-col items-center justify-center text-center select-none relative">
 
-        {/* Venky Interactive Avatar (Tap to talk) */}
-        <div className="relative mb-3.5">
+        {/* Venky Interactive Direct Portrait (Tap to talk) */}
+        <div className="relative mb-3">
           <VenkyAvatar
             size="lg"
             isListening={isListening}
             isSpeaking={isSpeaking}
+            getAudioLevel={getAudioLevel}
             onClick={handleOrbClick}
           />
         </div>
 
-        {/* Action Title */}
-
-
-        {/* Live Equalizer Soundwaves */}
-        <div className="flex items-end justify-center space-x-1.5 h-7 mb-2.5">
-          <span className={`w-1.5 bg-amber-400 rounded-full transition-all duration-200 ${isListening || isSpeaking ? 'h-7 animate-pulse' : 'h-2'}`}></span>
-          <span className={`w-1.5 bg-orange-500 rounded-full transition-all duration-200 ${isListening || isSpeaking ? 'h-5 animate-pulse [animation-delay:0.1s]' : 'h-3'}`}></span>
-          <span className={`w-1.5 bg-amber-300 rounded-full transition-all duration-200 ${isListening || isSpeaking ? 'h-8 animate-pulse [animation-delay:0.2s]' : 'h-2'}`}></span>
-          <span className={`w-1.5 bg-orange-600 rounded-full transition-all duration-200 ${isListening || isSpeaking ? 'h-6 animate-pulse [animation-delay:0.3s]' : 'h-4'}`}></span>
-          <span className={`w-1.5 bg-amber-500 rounded-full transition-all duration-200 ${isListening || isSpeaking ? 'h-5 animate-pulse [animation-delay:0.4s]' : 'h-2'}`}></span>
-        </div>
-
-        {/* Active Waiter Interactive State Pill */}
-        {isListening ? (
-          <div className="flex flex-col items-center max-w-[280px]">
-            <div className="inline-flex items-center space-x-2 px-3 py-1 rounded-full bg-amber-500/20 border border-amber-400/50 text-amber-300 text-xs font-bold shadow-lg animate-pulse">
-              <PenLine className="w-3.5 h-3.5 text-amber-400 animate-bounce" />
-              <span>Venky is taking down your order...</span>
+        {/* Real-time Order Pad only when diner is actively speaking */}
+        {isListening && interimText && (
+          <div className="mt-1 px-3 py-2 bg-slate-900/95 border border-amber-400/40 rounded-xl text-left w-full max-w-[280px] shadow-2xl backdrop-blur-sm animate-fadeIn">
+            <div className="flex items-center justify-between text-[10px] font-black text-amber-400 uppercase tracking-wider mb-1">
+              <span className="flex items-center gap-1.5">
+                <NotebookPen className="w-3 h-3 text-amber-300" />
+                <span>Order Pad</span>
+              </span>
+              <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-ping"></span>
             </div>
-            {interimText && (
-              <div className="mt-2.5 px-3 py-2 bg-slate-900/95 border border-amber-400/40 rounded-xl text-left w-full shadow-2xl backdrop-blur-sm animate-fadeIn">
-                <div className="flex items-center justify-between text-[10px] font-black text-amber-400 uppercase tracking-wider mb-1">
-                  <span className="flex items-center gap-1.5">
-                    <NotebookPen className="w-3 h-3 text-amber-300" />
-                    <span>Writing in Order Pad</span>
-                  </span>
-                  <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-ping"></span>
-                </div>
-                <p className="text-xs text-white italic font-medium leading-relaxed">"{interimText}..."</p>
-              </div>
-            )}
-          </div>
-        ) : isSpeaking ? (
-          <div className="inline-flex items-center space-x-2 px-3.5 py-1 rounded-full bg-orange-500/20 border border-orange-400/40 text-amber-200 text-xs font-bold shadow-md">
-            <Volume2 className="w-3.5 h-3.5 text-amber-400 animate-pulse" />
-            <span>Venky is speaking...</span>
-          </div>
-        ) : (
-          <div className="inline-flex items-center space-x-1.5 px-3 py-1 rounded-full bg-slate-900/80 border border-slate-800 text-slate-300 text-xs font-medium">
-            <span>Tap Venky to order food or ask recommendations</span>
+            <p className="text-xs text-white italic font-medium leading-relaxed">"{interimText}..."</p>
           </div>
         )}
-
 
       </div>
 

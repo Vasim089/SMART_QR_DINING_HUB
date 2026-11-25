@@ -9,6 +9,9 @@ export function useSpeech({ onTranscriptReady, languageCode = 'en' }) {
   
   const recognitionRef = useRef(null);
   const audioRef = useRef(null);
+  const audioCtxRef = useRef(null);
+  const analyserRef = useRef(null);
+  const dataArrayRef = useRef(null);
 
   // Initialize SpeechRecognition
   useEffect(() => {
@@ -113,6 +116,21 @@ export function useSpeech({ onTranscriptReady, languageCode = 'en' }) {
     window.speechSynthesis.speak(utterance);
   }, []);
 
+  // Read real-time speech amplitude (0.0 to 1.0) for lip-syncing
+  const getAudioLevel = useCallback(() => {
+    if (!analyserRef.current || !dataArrayRef.current) return 0;
+    analyserRef.current.getByteFrequencyData(dataArrayRef.current);
+    // Focus on human vocal frequencies (lower-mid bins)
+    const bins = dataArrayRef.current;
+    let sum = 0;
+    const count = Math.min(24, bins.length);
+    for (let i = 1; i < count; i++) {
+      sum += bins[i];
+    }
+    const avg = sum / (count - 1 || 1);
+    return Math.min(1, Math.max(0, (avg - 15) / 110));
+  }, []);
+
   // Main speaking function: Streams Edge-TTS Neural Voice (Microsoft Azure Neural)
   const speak = useCallback((text, langCode = languageCode) => {
     if (!text || !text.trim()) return;
@@ -122,18 +140,46 @@ export function useSpeech({ onTranscriptReady, languageCode = 'en' }) {
 
     try {
       const url = getNeuralTtsUrl(text.trim(), langCode);
-      const audio = new Audio(url);
+      const audio = new Audio();
+      audio.crossOrigin = 'anonymous';
+      audio.src = url;
       audioRef.current = audio;
+
+      // Connect Web Audio API AnalyserNode for real-time lip sync
+      try {
+        const AudioCtx = window.AudioContext || window.webkitAudioContext;
+        if (AudioCtx) {
+          if (!audioCtxRef.current) {
+            audioCtxRef.current = new AudioCtx();
+          }
+          if (audioCtxRef.current.state === 'suspended') {
+            audioCtxRef.current.resume().catch(() => {});
+          }
+          const source = audioCtxRef.current.createMediaElementSource(audio);
+          const analyser = audioCtxRef.current.createAnalyser();
+          analyser.fftSize = 128;
+          analyser.smoothingTimeConstant = 0.45;
+          source.connect(analyser);
+          analyser.connect(audioCtxRef.current.destination);
+          analyserRef.current = analyser;
+          dataArrayRef.current = new Uint8Array(analyser.frequencyBinCount);
+        }
+      } catch (ctxErr) {
+        console.warn('Web Audio analyser setup skipped:', ctxErr);
+        analyserRef.current = null;
+      }
 
       audio.onplay = () => setIsSpeaking(true);
       audio.onended = () => {
         setIsSpeaking(false);
         audioRef.current = null;
+        analyserRef.current = null;
       };
       audio.onerror = (e) => {
         console.warn('Neural TTS stream error, falling back to browser voice:', e);
         setIsSpeaking(false);
         audioRef.current = null;
+        analyserRef.current = null;
         speakFallback(text, langCode);
       };
 
@@ -141,6 +187,7 @@ export function useSpeech({ onTranscriptReady, languageCode = 'en' }) {
       if (playPromise !== undefined) {
         playPromise.catch((err) => {
           console.warn('Audio play restricted by browser policy, using fallback:', err);
+          analyserRef.current = null;
           speakFallback(text, langCode);
         });
       }
@@ -183,6 +230,7 @@ export function useSpeech({ onTranscriptReady, languageCode = 'en' }) {
     stopListening,
     speak,
     stopSpeaking,
+    getAudioLevel,
   };
 }
 
