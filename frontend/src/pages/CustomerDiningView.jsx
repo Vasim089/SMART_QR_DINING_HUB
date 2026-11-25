@@ -5,7 +5,10 @@ import {
   Gamepad2,
   Tag,
   Star,
-  Mic
+  Mic,
+  MoreVertical,
+  Volume2,
+  VolumeX
 } from 'lucide-react';
 import { VoiceAssistant } from '../components/VoiceAssistant';
 import { VenkyAvatar } from '../components/VenkyAvatar';
@@ -33,6 +36,8 @@ export function CustomerDiningView({ restaurantId, tableNumber, onOpenLanguageMo
   const [sessionToken, setSessionToken] = useState(null);
   const [cartItems, setCartItems] = useState([]);
   const [isReviewOpen, setIsReviewOpen] = useState(false);
+  const [isMoreMenuOpen, setIsMoreMenuOpen] = useState(false);
+  const [ttsEnabled, setTtsEnabled] = useState(true);
   const [isLoading, setIsLoading] = useState(true);
 
   // Load restaurant & menu data
@@ -125,6 +130,7 @@ export function CustomerDiningView({ restaurantId, tableNumber, onOpenLanguageMo
             setSessionToken={setSessionToken}
             onAddToCart={handleAddToCart}
             cartItems={cartItems}
+            ttsEnabled={ttsEnabled}
           />
         )}
 
@@ -248,14 +254,64 @@ export function CustomerDiningView({ restaurantId, tableNumber, onOpenLanguageMo
             )}
           </button>
 
-          {/* 5. Right 2: Review */}
-          <button
-            onClick={() => setIsReviewOpen(true)}
-            className="flex flex-col items-center py-1 px-2.5 rounded-2xl text-slate-400 hover:text-amber-300 transition-all"
-          >
-            <Star className="w-5 h-5 mb-0.5" />
-            <span className="text-[10px] tracking-tight">Review</span>
-          </button>
+          {/* 5. Right 2: More Options (Three Dots) */}
+          <div className="relative">
+            <button
+              onClick={() => setIsMoreMenuOpen((prev) => !prev)}
+              className={`flex flex-col items-center py-1 px-2.5 rounded-2xl transition-all ${
+                isMoreMenuOpen
+                  ? 'text-amber-300 font-black scale-105'
+                  : 'text-slate-400 hover:text-amber-300'
+              }`}
+              title="More Options"
+            >
+              <MoreVertical className="w-5 h-5 mb-0.5" />
+              <span className="text-[10px] tracking-tight">More</span>
+            </button>
+
+            {isMoreMenuOpen && (
+              <>
+                <div
+                  className="fixed inset-0 z-30"
+                  onClick={() => setIsMoreMenuOpen(false)}
+                />
+                <div className="absolute right-0 bottom-14 w-48 bg-slate-950/95 border border-slate-800 rounded-2xl shadow-2xl py-1.5 z-40 backdrop-blur-md">
+                  <button
+                    onClick={() => {
+                      setIsMoreMenuOpen(false);
+                      setIsReviewOpen(true);
+                    }}
+                    className="w-full px-3.5 py-2.5 text-left text-xs font-semibold flex items-center gap-2.5 text-slate-200 hover:bg-slate-900 transition"
+                  >
+                    <Star className="w-4 h-4 text-amber-400" />
+                    <span>Leave a Review</span>
+                  </button>
+
+                  <button
+                    onClick={() => {
+                      setTtsEnabled((prev) => !prev);
+                      setIsMoreMenuOpen(false);
+                    }}
+                    className="w-full px-3.5 py-2.5 text-left text-xs font-semibold flex items-center justify-between hover:bg-slate-900 transition border-t border-slate-800/80"
+                  >
+                    <span className="flex items-center gap-2.5 text-slate-200">
+                      {ttsEnabled ? (
+                        <Volume2 className="w-4 h-4 text-amber-400" />
+                      ) : (
+                        <VolumeX className="w-4 h-4 text-slate-500" />
+                      )}
+                      <span>Waiter Voice</span>
+                    </span>
+                    <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
+                      ttsEnabled ? 'bg-amber-500/20 text-amber-300' : 'bg-slate-800 text-slate-400'
+                    }`}>
+                      {ttsEnabled ? 'On' : 'Muted'}
+                    </span>
+                  </button>
+                </div>
+              </>
+            )}
+          </div>
 
         </div>
       </nav>

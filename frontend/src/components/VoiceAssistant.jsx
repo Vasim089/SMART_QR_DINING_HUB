@@ -9,7 +9,9 @@ import {
   CheckCircle2,
   Bot,
   NotebookPen,
-  PenLine
+  PenLine,
+  MoreVertical,
+  RotateCcw
 } from 'lucide-react';
 import { useSpeech } from '../hooks/useSpeech';
 import { sendChatMessage, trackEvent, getOllamaStatus } from '../services/api';
@@ -22,11 +24,11 @@ export function VoiceAssistant({
   sessionToken,
   setSessionToken,
   onAddToCart,
-  cartItems
+  cartItems,
+  ttsEnabled = true
 }) {
   const [isLoading, setIsLoading] = useState(false);
   const [recommendedDishes, setRecommendedDishes] = useState([]);
-  const [ttsEnabled, setTtsEnabled] = useState(true);
   const [ollamaInfo, setOllamaInfo] = useState({ online: false, target_model: 'qwen2.5:3b', model_available: false });
   const [hasSpokenWelcome, setHasSpokenWelcome] = useState(false);
 
@@ -62,6 +64,13 @@ export function VoiceAssistant({
     const interval = setInterval(checkOllama, 8000);
     return () => clearInterval(interval);
   }, []);
+
+  // Stop audio immediately if muted from the bottom More menu
+  useEffect(() => {
+    if (!ttsEnabled && isSpeaking) {
+      stopSpeaking();
+    }
+  }, [ttsEnabled, isSpeaking, stopSpeaking]);
 
   // Speak Venky's welcome greeting on arrival
   useEffect(() => {
@@ -141,36 +150,6 @@ export function VoiceAssistant({
 
   return (
     <div className="flex-1 flex flex-col justify-between py-2 text-white relative h-full">
-
-      {/* Top Waiter Badge with Small Avatar */}
-      <div className="flex items-center justify-between px-2 pt-1 pb-2">
-        <div className="flex items-center space-x-2.5">
-          <VenkyAvatar size="sm" isListening={isListening} isSpeaking={isSpeaking} />
-          <div className="flex flex-col">
-            <span className="text-xs font-black tracking-wide text-amber-300 flex items-center gap-1.5">
-              <span>Venky</span>
-              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
-            </span>
-            <span className="text-[10px] text-slate-400 font-medium">Your Table Waiter</span>
-          </div>
-        </div>
-
-        {/* Audio Mute/Unmute Toggle */}
-        <button
-          onClick={() => {
-            if (isSpeaking) stopSpeaking();
-            setTtsEnabled(!ttsEnabled);
-          }}
-          className={`flex items-center space-x-1 px-2.5 py-1 rounded-full text-[11px] font-bold border transition ${ttsEnabled
-            ? 'bg-amber-500/20 text-amber-300 border-amber-500/40 shadow-xs'
-            : 'bg-slate-900 text-slate-500 border-slate-800'
-            }`}
-          title={ttsEnabled ? "Venky Voice On" : "Voice Muted"}
-        >
-          {ttsEnabled ? <Volume2 className="w-3.5 h-3.5 text-amber-400" /> : <VolumeX className="w-3.5 h-3.5" />}
-          <span>{ttsEnabled ? 'Voice On' : 'Muted'}</span>
-        </button>
-      </div>
 
       {/* HERO VOICE STAGE: Direct Front Portrait of Waiter Venky */}
       <div className="my-auto py-3 flex flex-col items-center justify-center text-center select-none relative">
